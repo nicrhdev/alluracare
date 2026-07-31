@@ -1,0 +1,428 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ========== ENUMS ==========
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum CouponType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+enum ProductStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+// ========== USER MODELS ==========
+
+model User {
+  id                String     @id @default(cuid())
+  email             String     @unique
+  password          String?
+  name              String?
+  image             String?
+  provider          String?
+  providerId        String?
+  emailVerified     DateTime?
+  role              Role       @default(USER)
+  
+  addresses         Address[]
+  orders            Order[]
+  wishlist          Wishlist[]
+  reviews           Review[]
+  cart              Cart?
+  stockNotifications StockNotification[]
+  
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  
+  @@map("users")
+}
+
+model Address {
+  id                String     @id @default(cuid())
+  userId            String
+  user              User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  fullName          String
+  phone             String?
+  street            String
+  city              String
+  state             String?
+  zipCode           String?
+  country           String
+  isDefault         Boolean    @default(false)
+  
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  
+  @@map("addresses")
+}
+
+// ========== PRODUCT CATEGORY ==========
+
+model Category {
+  id                String     @id @default(cuid())
+  nameEn            String
+  nameFa            String
+  slug              String     @unique
+  description       String?
+  image             String?
+  parentId          String?
+  parent            Category?  @relation("CategoryParent", fields: [parentId], references: [id])
+  children          Category[] @relation("CategoryParent")
+  order             Int        @default(0)
+  isActive          Boolean    @default(true)
+  
+  products          Product[]
+  
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  
+  @@map("categories")
+}
+
+// ========== SKIN TYPES ==========
+
+model SkinType {
+  id          String    @id @default(cuid())
+  nameEn      String    @unique
+  nameFa      String    @unique
+  slug        String    @unique
+  description String?
+  order       Int       @default(0)
+  isActive    Boolean   @default(true)
+  
+  products    ProductSkinType[]
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  @@map("skin_types")
+}
+
+// ========== CONCERNS ==========
+
+model Concern {
+  id          String    @id @default(cuid())
+  nameEn      String    @unique
+  nameFa      String    @unique
+  slug        String    @unique
+  description String?
+  order       Int       @default(0)
+  isActive    Boolean   @default(true)
+  
+  products    ProductConcern[]
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  @@map("concerns")
+}
+
+// ========== PRODUCT MODELS ==========
+
+model Product {
+  id                String     @id @default(cuid())
+  nameEn            String
+  nameFa            String
+  slug              String     @unique
+  descriptionEn     String?
+  descriptionFa     String?
+  images            String[]
+  
+  // Product attributes
+  benefits          String[]
+  ingredients       String[]
+  howToUseEn        String?
+  howToUseFa        String?
+  origin            String?
+  brand             String?
+  
+  // Status - NEW
+  status            ProductStatus @default(DRAFT)
+  
+  // Relations
+  categoryId        String
+  category          Category   @relation(fields: [categoryId], references: [id])
+  
+  // Many-to-many relations with Skin Types and Concerns
+  skinTypes         ProductSkinType[]
+  concerns          ProductConcern[]
+  
+  // Variants
+  variants          Variant[]
+  
+  // Status flags
+  isActive          Boolean    @default(true)
+  isFeatured        Boolean    @default(false)
+  
+  // Timestamps
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  
+  // Relations
+  reviews           Review[]
+  orderItems        OrderItem[]
+  wishlist          Wishlist[]
+  cartItems         CartItem[]
+  stockNotifications StockNotification[]
+  
+  @@index([slug])
+  @@index([categoryId])
+  @@index([status])
+  @@map("products")
+}
+
+// ========== PRODUCT - SKIN TYPE JUNCTION ==========
+
+model ProductSkinType {
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  skinTypeId  String
+  skinType    SkinType  @relation(fields: [skinTypeId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime  @default(now())
+  
+  @@id([productId, skinTypeId])
+  @@map("product_skin_types")
+}
+
+// ========== PRODUCT - CONCERN JUNCTION ==========
+
+  model ProductConcern {
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  concernId   String
+  concern     Concern   @relation(fields: [concernId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime  @default(now())
+  
+  @@id([productId, concernId])
+  @@map("product_concerns")
+}
+
+// ========== VARIANT MODEL ==========
+
+model Variant {
+  id                String     @id @default(cuid())
+  productId         String
+  product           Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  size              String
+  price             Float
+  comparePrice      Float?
+  stock             Int        @default(0)
+  sku               String     @unique
+  isDefault         Boolean    @default(false)
+  
+  orderItems        OrderItem[]
+  cartItems         CartItem[]
+  stockNotifications StockNotification[]
+  
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  
+  @@map("variants")
+}
+
+// ========== SHOPPING CART MODELS ==========
+
+model Cart {
+  id                String     @id @default(cuid())
+  userId            String     @unique
+  user              User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  items             CartItem[]
+  
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  
+  @@map("carts")
+}
+
+model CartItem {
+  id                String     @id @default(cuid())
+  cartId            String
+  cart              Cart       @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  variantId         String
+  variant           Variant    @relation(fields: [variantId], references: [id])
+  quantity          Int        @default(1)
+  
+  product           Product    @relation(fields: [productId], references: [id])
+  productId         String
+  
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  
+  @@map("cart_items")
+}
+
+// ========== ORDER MODELS ==========
+
+model Order {
+  id                String     @id @default(cuid())
+  orderNumber       String     @unique
+  userId            String
+  user              User       @relation(fields: [userId], references: [id])
+  
+  status            OrderStatus @default(PENDING)
+  total             Float
+  subtotal          Float
+  tax               Float      @default(0)
+  shippingCost      Float      @default(0)
+  discount          Float      @default(0)
+  
+  shippingAddress   Json
+  
+  items             OrderItem[]
+  
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  
+  @@index([userId])
+  @@index([status])
+  @@map("orders")
+}
+
+model OrderItem {
+  id                String     @id @default(cuid())
+  orderId           String
+  order             Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  variantId         String
+  variant           Variant    @relation(fields: [variantId], references: [id])
+  quantity          Int
+  price             Float
+  
+  product           Product    @relation(fields: [productId], references: [id])
+  productId         String
+  
+  createdAt         DateTime   @default(now())
+  
+  @@map("order_items")
+}
+
+// ========== WISHLIST MODEL ==========
+
+model Wishlist {
+  id                String     @id @default(cuid())
+  userId            String
+  user              User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId         String
+  product           Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  createdAt         DateTime   @default(now())
+  
+  @@unique([userId, productId])
+  @@map("wishlists")
+}
+
+// ========== REVIEW MODEL ==========
+
+model Review {
+  id                String     @id @default(cuid())
+  userId            String
+  user              User       @relation(fields: [userId], references: [id])
+  productId         String
+  product           Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  rating            Int
+  title             String?
+  commentEn         String?
+  commentFa         String?
+  images            String[]
+  isVerifiedPurchase Boolean  @default(false)
+  isApproved        Boolean    @default(false)
+
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  
+  @@index([productId])
+  @@index([userId])
+  @@map("reviews")
+}
+
+// ========== STOCK NOTIFICATION MODEL ==========
+
+model StockNotification {
+  id                String     @id @default(cuid())
+  email             String
+  variantId         String
+  variant           Variant    @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  userId            String?
+  user              User?      @relation(fields: [userId], references: [id])
+  isNotified        Boolean    @default(false)
+  
+  product           Product    @relation(fields: [productId], references: [id])
+  productId         String
+  
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  
+  @@unique([email, variantId])
+  @@map("stock_notifications")
+}
+
+// ========== COUPON MODEL ==========
+
+model Coupon {
+  id                String     @id @default(cuid())
+  code              String     @unique
+  type              CouponType @default(PERCENTAGE)
+  value             Float
+  minimumOrder      Float?
+  maxDiscount       Float?
+  usageLimit        Int?
+  usedCount         Int        @default(0)
+  startDate         DateTime?
+  endDate           DateTime?
+  isActive          Boolean    @default(true)
+  
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  
+  @@map("coupons")
+}
+// ========== HERO SLIDE MODEL ==========
+
+model HeroSlide {
+  id          String    @id @default(cuid())
+  image       String    // Cloudinary image URL
+  imageMobile String?   // Optional mobile-optimized image
+  titleEn     String?
+  titleFa     String?
+  subtitleEn  String?
+  subtitleFa  String?
+  ctaTextEn   String?
+  ctaTextFa   String?
+  ctaLink     String?   // e.g., /shop, /products/slug
+  order       Int       @default(0)
+  isActive    Boolean   @default(true)
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  @@map("hero_slides")
+}
