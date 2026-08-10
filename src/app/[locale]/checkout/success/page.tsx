@@ -17,6 +17,23 @@ interface SuccessPageProps {
   }>;
 }
 
+// ✅ Add type for order
+interface OrderWithItems {
+  id: string;
+  orderNumber: string;
+  userId: string;
+  status: string;
+  total: number;
+  subtotal: number;
+  tax: number;
+  shippingCost: number;
+  discount: number;
+  shippingAddress: any;
+  createdAt: Date;
+  updatedAt: Date;
+  items: any[];
+}
+
 export default async function SuccessPage({ params, searchParams }: SuccessPageProps) {
   const { locale } = await params;
   const search = await searchParams;
@@ -36,11 +53,11 @@ export default async function SuccessPage({ params, searchParams }: SuccessPageP
   }
 
   // Get order details
-  let order = null;
-  let orderError = null;
+  let order: OrderWithItems | null = null;
+  let orderError: string | null = null;
 
   try {
-    order = await prisma.order.findUnique({
+    const result = await prisma.order.findUnique({
       where: {
         id: search.orderId,
         userId: session.user.id,
@@ -57,6 +74,7 @@ export default async function SuccessPage({ params, searchParams }: SuccessPageP
         },
       },
     });
+    order = result as OrderWithItems | null;
   } catch (error) {
     console.error('Failed to fetch order:', error);
     orderError = 'Failed to load order details';
@@ -68,10 +86,18 @@ export default async function SuccessPage({ params, searchParams }: SuccessPageP
   }
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat(locale === 'fa' ? 'fa-IR' : 'en-US', {
+    if (locale === 'fa') {
+      const tomanRate = 185000;
+      const tomanPrice = price * tomanRate;
+      return new Intl.NumberFormat('fa-IR', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(tomanPrice) + ' تومان';
+    }
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
-      minimumFractionDigits: 2,
+      minimumFractionDigits: 0,
     }).format(price);
   };
 
