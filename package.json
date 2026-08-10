@@ -9,7 +9,6 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:netlify": "next build",
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
