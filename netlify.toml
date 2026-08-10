@@ -1,7 +1,5 @@
-# netlify.toml
-
 [build]
-  command = "NEXT_DISABLE_ESLINT=1 npm run build"
+  command = "npm run build:netlify"
   publish = ".next"
 
 [build.environment]
