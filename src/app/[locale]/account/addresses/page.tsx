@@ -1,11 +1,9 @@
-// src/app/[locale]/account/addresses/page.tsx
-
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma/client';
 import Link from 'next/link';
-import { MapPin, Plus, Pencil, Trash2, Check } from 'lucide-react';
+import { MapPin, Plus, Pencil, Trash2 } from 'lucide-react';
 
 interface AddressesPageProps {
   params: Promise<{
@@ -68,7 +66,7 @@ export default async function AddressesPage({ params }: AddressesPageProps) {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {user.addresses.map((address) => (
+          {user.addresses.map((address: any) => (
             <div
               key={address.id}
               className="bg-white/80 backdrop-blur-sm rounded-xl border border-brand-secondary/20 p-6 relative"
