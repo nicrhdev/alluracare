@@ -1,0 +1,19 @@
+# netlify.toml
+
+[build]
+  command = "npm run build:netlify"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+[context.production.environment]
+  NODE_ENV = "production"
+  NEXTAUTH_URL = "https://alluracare.netlify.app"
+
+[context.deploy-preview.environment]
+  NODE_ENV = "preview"
+  NEXTAUTH_URL = "https://alluracare-preview.netlify.app"

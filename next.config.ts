@@ -7,7 +7,6 @@ const withNextIntl = createNextIntlPlugin();
 
 /** @type {import('next').NextConfig} */
 const nextConfig: NextConfig = {
-  // Image optimization
   images: {
     formats: ['image/avif', 'image/webp'],
     remotePatterns: [
@@ -22,38 +21,10 @@ const nextConfig: NextConfig = {
     ],
   },
 
-  // Compression
   compress: true,
-
-  // Security headers
-  async headers() {
-    return [
-      {
-        source: '/(.*)',
-        headers: [
-          {
-            key: 'X-Content-Type-Options',
-            value: 'nosniff',
-          },
-          {
-            key: 'X-Frame-Options',
-            value: 'DENY',
-          },
-          {
-            key: 'X-XSS-Protection',
-            value: '1; mode=block',
-          },
-          {
-            key: 'Referrer-Policy',
-            value: 'strict-origin-when-cross-origin',
-          },
-        ],
-      },
-    ];
-  },
-
-  // Remove powered by header
   poweredByHeader: false,
+
+  output: 'standalone',
 };
 
 export default withNextIntl(nextConfig);
