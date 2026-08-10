@@ -2,28 +2,23 @@
   "name": "alluracare",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "npm@10.9.2",
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:cloudflare": "next build",
+    "build:cloudflare": "npx prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
-    "format": "prettier --write .",
-    "db:push": "prisma db push",
     "db:generate": "prisma generate",
-    "db:studio": "prisma studio",
-    "db:migrate": "prisma migrate dev",
-    "db:seed": "tsx prisma/seed.ts",
-    "db:reset": "prisma migrate reset",
-    "seed:products": "tsx scripts/migrate-products.ts",
-    "seed:concerns": "tsx scripts/seed-concerns.ts",
-    "seed:options": "tsx scripts/seed-options.ts",
-    "set-admin": "tsx scripts/set-admin.ts"
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.2",
-    "@google/generative-ai": "^0.24.1",
     "@hello-pangea/dnd": "^18.0.1",
     "@hookform/resolvers": "^5.4.0",
     "@prisma/adapter-pg": "^7.9.0",
@@ -82,8 +77,5 @@
     "tailwindcss": "^4",
     "tsx": "^4.23.1",
     "typescript": "^5"
-  },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
   }
 }
