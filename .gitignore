@@ -1,41 +1,60 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+cat > .gitignore << 'EOF'
+# Dependencies
+node_modules/
+.pnpm-store/
+.npm/
+.yarn/
 
-# dependencies
-/node_modules
-/.pnp
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
+# Build outputs
+.next/
+out/
+dist/
+build/
+.vercel/
+.netlify/
 
-# testing
-/coverage
+# Environment files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env*.local
 
-# next.js
-/.next/
-/out/
-
-# production
-/build
-
-# misc
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
 .DS_Store
-*.pem
 
-# debug
+# Logs
+logs/
+*.log
 npm-debug.log*
+pnpm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# Testing
+coverage/
+.nyc_output/
 
-# vercel
-.vercel
+# Temporary files
+tmp/
+temp/
+*.tmp
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
+# Prisma
+prisma/*.db
+prisma/*.db-journal
+
+# Cloudflare
+.wrangler/
+.cloudflare/
+
+# Other
+*.pem
+*.key
+*.cert
+EOF
