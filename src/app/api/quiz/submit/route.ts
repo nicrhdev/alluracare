@@ -1,26 +1,33 @@
 // src/app/api/quiz/submit/route.ts
 
 import { NextRequest, NextResponse } from 'next/server';
-import type { QuizSubmission } from '@/types/quiz';
+
+interface QuizAnswer {
+  questionId: string;
+  optionId: string;
+}
 
 // Sample product recommendations based on quiz results
-const getRecommendations = (answers: { questionId: string; optionId: string }[]) => {
+const getRecommendations = (answers: QuizAnswer[]): string[] => {
   // Extract values from answers
   const skinType = answers.find(a => a.questionId === 'q1')?.optionId;
   const concerns = answers.filter(a => a.questionId === 'q2').map(a => a.optionId);
-  const routine = answers.find(a => a.questionId === 'q3')?.optionId;
   const goal = answers.find(a => a.questionId === 'q4')?.optionId;
 
-  // Build recommendation logic
-  const recommendations = [];
+  // ✅ Fixed: Explicitly type as string array
+  const recommendations: string[] = [];
 
   // Base recommendations based on skin type
   if (skinType === 'q1_o1') {
     recommendations.push('Hydrating Cleanser', 'Rich Moisturizer', 'Hyaluronic Acid Serum');
   } else if (skinType === 'q1_o2') {
     recommendations.push('Gel Cleanser', 'Lightweight Moisturizer', 'Salicylic Acid Serum');
+  } else if (skinType === 'q1_o3') {
+    recommendations.push('Balancing Cleanser', 'Lightweight Moisturizer', 'Niacinamide Serum');
   } else if (skinType === 'q1_o4') {
     recommendations.push('Gentle Cleanser', 'Soothing Moisturizer', 'Calming Serum');
+  } else if (skinType === 'q1_o5') {
+    recommendations.push('Gentle Cleanser', 'Balancing Moisturizer', 'Hyaluronic Acid Serum');
   }
 
   // Add concerns-based recommendations
@@ -33,24 +40,37 @@ const getRecommendations = (answers: { questionId: string; optionId: string }[])
   if (concerns.includes('q2_o3')) {
     recommendations.push('Retinol', 'Peptide Cream');
   }
+  if (concerns.includes('q2_o4')) {
+    recommendations.push('Hydrating Mask', 'Ceramide Cream');
+  }
+  if (concerns.includes('q2_o5')) {
+    recommendations.push('Soothing Serum', 'Centella Cream');
+  }
+  if (concerns.includes('q2_o6')) {
+    recommendations.push('Vitamin C', 'AHA Exfoliant');
+  }
 
   // Add goal-based recommendations
   if (goal === 'q4_o1') {
     recommendations.push('Vitamin C', 'AHA Exfoliant');
+  } else if (goal === 'q4_o2') {
+    recommendations.push('Salicylic Acid', 'Niacinamide');
   } else if (goal === 'q4_o3') {
     recommendations.push('Hyaluronic Acid', 'Ceramide Cream');
+  } else if (goal === 'q4_o4') {
+    recommendations.push('Retinol', 'Peptide Cream');
   }
 
-  // Return unique recommendations
+  // Remove duplicates and return
   return [...new Set(recommendations)];
 };
 
 export async function POST(request: NextRequest) {
   try {
-    const body: QuizSubmission = await request.json();
+    const body = await request.json();
     const { answers, email, name } = body;
 
-    if (!answers || answers.length === 0) {
+    if (!answers || !Array.isArray(answers) || answers.length === 0) {
       return NextResponse.json(
         { error: 'No answers provided' },
         { status: 400 }
@@ -60,10 +80,6 @@ export async function POST(request: NextRequest) {
     // Generate recommendations
     const recommendations = getRecommendations(answers);
 
-    // Here you could save the quiz result to the database
-    // await prisma.quizResult.create({ data: { ... } });
-
-    // Return results
     return NextResponse.json({
       success: true,
       recommendations,
