@@ -113,7 +113,7 @@ export default async function OrdersPage({ params }: OrdersPageProps) {
         </div>
       ) : (
         <div className="space-y-4">
-          {orders.map((order) => (
+          {orders.map((order: any) => (
             <Link
               key={order.id}
               href={`/${locale}/account/orders/${order.id}`}
