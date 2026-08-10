@@ -68,7 +68,7 @@ export default async function CustomerDetailPage({ params }: CustomerDetailPageP
 
   // Calculate stats
   const orderCount = customer.orders.length;
-  const totalSpent = customer.orders.reduce((sum, order) => sum + order.total, 0);
+  const totalSpent = customer.orders.reduce((sum: number, order: any) => sum + order.total, 0);
   const averageOrder = orderCount > 0 ? totalSpent / orderCount : 0;
 
   // Format dates
