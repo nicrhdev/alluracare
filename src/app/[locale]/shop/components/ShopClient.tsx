@@ -248,22 +248,22 @@ export default function ShopClient({
   };
 
   // Build pagination
-  const getPageNumbers = () => {
-    const pages = [];
-    const maxVisible = 5;
-    let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
-    let end = Math.min(totalPages, start + maxVisible - 1);
+  const getPageNumbers = (): number[] => {
+  const pages: number[] = [];
+  const maxVisible: number = 5;
+  let start: number = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+  let end: number = Math.min(totalPages, start + maxVisible - 1);
 
-    if (end - start < maxVisible - 1) {
-      start = Math.max(1, end - maxVisible + 1);
-    }
+  if (end - start < maxVisible - 1) {
+    start = Math.max(1, end - maxVisible + 1);
+  }
 
-    for (let i = start; i <= end; i++) {
-      pages.push(i);
-    }
+  for (let i: number = start; i <= end; i++) {
+    pages.push(i);
+  }
 
-    return pages;
-  };
+  return pages;
+};
 
   // Get current category for FilterBar
   const currentCategory = searchParams.get('category') || '';
@@ -397,7 +397,9 @@ export default function ShopClient({
               {/* Product Grid */}
               <div className={`grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6`}>
                 {products.map((product, index) => {
-                  const lowestPrice = Math.min(...product.variants.map((v) => v.price));
+                  const lowestPrice = product.variants.length > 0 
+  ? Math.min(...product.variants.map((v) => v.price)) 
+  : 0;
                   const name = isPersian ? product.nameFa : product.nameEn;
                   const categoryName = isPersian
                     ? product.category.nameFa
