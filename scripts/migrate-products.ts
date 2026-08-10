@@ -2,10 +2,18 @@
 
 import { PrismaClient } from '@prisma/client';
 import * as dotenv from 'dotenv';
+import * as path from 'path';
 
-dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+
+if (!process.env.DATABASE_URL) {
+  console.error('❌ DATABASE_URL is not set in environment variables');
+  console.error('Please add DATABASE_URL to your .env file');
+  process.exit(1);
+}
 
 const prisma = new PrismaClient();
+
 
 async function main() {
   console.log('🔄 Migrating existing products...');
@@ -21,10 +29,6 @@ async function main() {
       console.log(`⏭️ Skipping product ${product.id} - no data to migrate`);
       continue;
     }
-
-    // Here you would map old skin types/concerns to new ones
-    // Since we don't have the exact mapping, we'll skip for now
-    // In production, you'd create a mapping or use the seed data
 
     console.log(`✅ Product ${product.id} migrated`);
   }

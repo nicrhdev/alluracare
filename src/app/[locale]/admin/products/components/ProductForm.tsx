@@ -13,6 +13,7 @@ interface Variant {
   size: string;
   price: number | string;
   comparePrice: number | string | null;
+  discountPercent: number | string | null;
   stock: number | string;
   sku: string;
   isDefault: boolean;
@@ -41,6 +42,10 @@ interface Product {
   descriptionFa: string | null;
   benefits: string[];
   ingredients: string[];
+  benefitsEn: string[];
+  benefitsFa: string[];
+  ingredientsEn: string[];
+  ingredientsFa: string[];
   howToUseEn: string | null;
   howToUseFa: string | null;
   skinTypes: { skinType: SkinType }[];
@@ -107,25 +112,35 @@ export default function ProductForm({
 
   // Form state
   const [formData, setFormData] = useState({
-    nameEn: product?.nameEn || '',
-    nameFa: product?.nameFa || '',
-    slug: product?.slug || '',
-    descriptionEn: product?.descriptionEn || '',
-    descriptionFa: product?.descriptionFa || '',
-    benefits: product?.benefits?.join('\n') || '',
-    ingredients: product?.ingredients?.join('\n') || '',
-    howToUseEn: product?.howToUseEn || '',
-    howToUseFa: product?.howToUseFa || '',
-    selectedSkinTypeIds: getSelectedSkinTypeIds(),
-    selectedConcernIds: getSelectedConcernIds(),
-    origin: product?.origin || '',
-    brand: product?.brand || '',
-    categoryId: product?.categoryId || '',
-    isActive: product?.isActive ?? true,
-    isFeatured: product?.isFeatured ?? false,
-    status: product?.status || 'DRAFT',
-    variants: product?.variants || [{ size: '', price: '', comparePrice: '', stock: '', sku: '', isDefault: true }],
-    images: product?.images || [],
+  nameEn: product?.nameEn || '',
+  nameFa: product?.nameFa || '',
+  slug: product?.slug || '',
+  descriptionEn: product?.descriptionEn || '',
+  descriptionFa: product?.descriptionFa || '',
+  benefitsEn: product?.benefitsEn?.join('\n') || product?.benefits?.join('\n') || '',
+  benefitsFa: product?.benefitsFa?.join('\n') || product?.benefits?.join('\n') || '',
+  ingredientsEn: product?.ingredientsEn?.join('\n') || product?.ingredients?.join('\n') || '',
+  ingredientsFa: product?.ingredientsFa?.join('\n') || product?.ingredients?.join('\n') || '',
+  howToUseEn: product?.howToUseEn || '',
+  howToUseFa: product?.howToUseFa || '',
+  selectedSkinTypeIds: getSelectedSkinTypeIds(),
+  selectedConcernIds: getSelectedConcernIds(),
+  origin: product?.origin || '',
+  brand: product?.brand || '',
+  categoryId: product?.categoryId || '',
+  isActive: product?.isActive ?? true,
+  isFeatured: product?.isFeatured ?? false,
+  status: product?.status || 'DRAFT',
+  variants: product?.variants || [{ 
+  size: '', 
+  price: '', 
+  comparePrice: '', 
+  discountPercent: '',
+  stock: '', 
+  sku: '', 
+  isDefault: true 
+  }],
+  images: product?.images || [],
   });
 
   const handleChange = (
@@ -152,14 +167,22 @@ export default function ProductForm({
   };
 
   const addVariant = () => {
-    setFormData((prev) => ({
-      ...prev,
-      variants: [
-        ...prev.variants,
-        { size: '', price: '', comparePrice: '', stock: '', sku: '', isDefault: false },
-      ],
-    }));
-  };
+  setFormData((prev) => ({
+    ...prev,
+    variants: [
+      ...prev.variants,
+      { 
+        size: '', 
+        price: '', 
+        comparePrice: '', 
+        discountPercent: '',
+        stock: '', 
+        sku: '', 
+        isDefault: false 
+      },
+    ],
+  }));
+};
 
   const removeVariant = (index: number) => {
     if (formData.variants.length <= 1) return;
@@ -193,38 +216,42 @@ export default function ProductForm({
     try {
       // Process variants - auto-generate SKU if empty
       const processedVariants = formData.variants.map((v, index) => {
-        const sku = v.sku || generateSKU(formData.slug, index);
+  const sku = v.sku || generateSKU(formData.slug, index);
+  const discountPercent = v.discountPercent ? parseFloat(v.discountPercent as string) : null;
 
-        return {
-          ...v,
-          price: v.price ? parseFloat(v.price as string) : 0,
-          comparePrice: v.comparePrice ? parseFloat(v.comparePrice as string) : null,
-          stock: v.stock ? parseInt(v.stock as string) : 0,
-          sku: sku,
-        };
-      });
+  return {
+    ...v,
+    price: v.price ? parseFloat(v.price as string) : 0,
+    comparePrice: v.comparePrice ? parseFloat(v.comparePrice as string) : null,
+    discountPercent: discountPercent,
+    stock: v.stock ? parseInt(v.stock as string) : 0,
+    sku: sku,
+  };
+});
 
       const payload = {
-        nameEn: formData.nameEn,
-        nameFa: formData.nameFa,
-        slug: formData.slug,
-        descriptionEn: formData.descriptionEn,
-        descriptionFa: formData.descriptionFa,
-        benefits: formData.benefits.split('\n').filter(Boolean),
-        ingredients: formData.ingredients.split('\n').filter(Boolean),
-        howToUseEn: formData.howToUseEn,
-        howToUseFa: formData.howToUseFa,
-        selectedSkinTypeIds: formData.selectedSkinTypeIds,
-        selectedConcernIds: formData.selectedConcernIds,
-        origin: formData.origin,
-        brand: formData.brand,
-        categoryId: formData.categoryId,
-        isActive: formData.isActive,
-        isFeatured: formData.isFeatured,
-        status: formData.status,
-        variants: processedVariants,
-        images: formData.images,
-      };
+  nameEn: formData.nameEn,
+  nameFa: formData.nameFa,
+  slug: formData.slug,
+  descriptionEn: formData.descriptionEn,
+  descriptionFa: formData.descriptionFa,
+  benefitsEn: formData.benefitsEn.split('\n').filter(Boolean),
+  benefitsFa: formData.benefitsFa.split('\n').filter(Boolean),
+  ingredientsEn: formData.ingredientsEn.split('\n').filter(Boolean),
+  ingredientsFa: formData.ingredientsFa.split('\n').filter(Boolean),
+  howToUseEn: formData.howToUseEn,
+  howToUseFa: formData.howToUseFa,
+  selectedSkinTypeIds: formData.selectedSkinTypeIds,
+  selectedConcernIds: formData.selectedConcernIds,
+  origin: formData.origin,
+  brand: formData.brand,
+  categoryId: formData.categoryId,
+  isActive: formData.isActive,
+  isFeatured: formData.isFeatured,
+  status: formData.status,
+  variants: processedVariants,
+  images: formData.images,
+};
 
       const url = isEdit ? `/api/admin/products/${product?.id}` : '/api/admin/products';
       const method = isEdit ? 'PUT' : 'POST';
@@ -259,8 +286,8 @@ export default function ProductForm({
         brand: 'برند',
         category: 'دسته‌بندی *',
         origin: 'کشور سازنده',
-        benefits: 'مزایا (هر خط یک مورد)',
-        ingredients: 'مواد تشکیل‌دهنده (هر خط یک مورد)',
+        benefitsFa: 'مزایا (هر خط یک مورد)',
+        ingredientsFa: 'مواد تشکیل‌دهنده (هر خط یک مورد)',
         skinTypes: 'نوع پوست (حداکثر ۱۰ مورد)',
         concerns: 'مشکلات پوستی (حداکثر ۱۰ مورد)',
         variants: 'سایزها و قیمت‌ها',
@@ -269,6 +296,7 @@ export default function ProductForm({
         size: 'سایز',
         price: 'قیمت',
         comparePrice: 'قیمت قبلی',
+        discountPercent: isPersian ? 'تخفیف %' : 'Discount %',
         stock: 'موجودی',
         sku: 'SKU (اختیاری)',
         active: 'فعال',
@@ -296,8 +324,8 @@ export default function ProductForm({
         brand: 'Brand',
         category: 'Category *',
         origin: 'Country of Origin',
-        benefits: 'Benefits (one per line)',
-        ingredients: 'Ingredients (one per line)',
+        benefitsEn: 'Benefits (one per line)',
+        ingredientsEn: 'Ingredients (one per line)',
         skinTypes: 'Skin Types (max 10)',
         concerns: 'Concerns (max 10)',
         variants: 'Variants',
@@ -431,15 +459,32 @@ export default function ProductForm({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">{labels.brand}</label>
-          <input
-            type="text"
-            name="brand"
-            value={formData.brand}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400"
-          />
-        </div>
+  <label className="block text-sm font-medium text-slate-700 mb-1">{labels.brand}</label>
+  <select
+    name="brand"
+    value={formData.brand}
+    onChange={handleChange}
+    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400"
+  >
+    <option value="">{isPersian ? 'انتخاب برند' : 'Select Brand'}</option>
+    <option value="Anua">Anua</option>
+    <option value="Beauty of Joseon">Beauty of Joseon</option>
+    <option value="SKIN1004">SKIN1004</option>
+    <option value="Medicube">Medicube</option>
+    <option value="AXIS-Y">AXIS-Y</option>
+    <option value="Dr.Althea">Dr.Althea</option>
+    <option value="COSRX">COSRX</option>
+    <option value="LANEIGE">LANEIGE</option>
+    <option value="TOCOBO">TOCOBO</option>
+    <option value="Purito">Purito</option>
+    <option value="numbuzin">numbuzin</option>
+    <option value="The Ordinary">The Ordinary</option>
+    <option value="K-SECRET">K-SECRET</option>
+    <option value="SOME BY MI">SOME BY MI</option>
+    <option value="La Roche-Posay">La Roche-Posay</option>
+    <option value="Arencia">Arencia</option>
+  </select>
+</div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -473,29 +518,77 @@ export default function ProductForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">{labels.benefits}</label>
-          <textarea
-            name="benefits"
-            value={formData.benefits}
-            onChange={handleChange}
-            rows={4}
-            className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400"
-          />
-        </div>
+      {/* Benefits Section */}
+<div className="border-t border-slate-200 pt-6">
+  <h3 className="font-semibold text-slate-700 mb-4">
+    {isPersian ? 'مزایا' : 'Benefits'}
+  </h3>
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div>
+      <label className="block text-sm font-medium text-slate-700 mb-1">
+        {labels.english}
+      </label>
+      <textarea
+        name="benefitsEn"
+        value={formData.benefitsEn}
+        onChange={handleChange}
+        rows={4}
+        className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400"
+        placeholder={isPersian ? 'هر خط یک مورد (انگلیسی)' : 'One per line (English)'}
+      />
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-slate-700 mb-1">
+        {labels.persian}
+      </label>
+      <textarea
+        name="benefitsFa"
+        value={formData.benefitsFa}
+        onChange={handleChange}
+        rows={4}
+        className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400"
+        dir="rtl"
+        placeholder={isPersian ? 'هر خط یک مورد (فارسی)' : 'One per line (Persian)'}
+      />
+    </div>
+  </div>
+</div>
 
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">{labels.ingredients}</label>
-          <textarea
-            name="ingredients"
-            value={formData.ingredients}
-            onChange={handleChange}
-            rows={4}
-            className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400"
-          />
-        </div>
-      </div>
+{/* Ingredients Section */}
+<div className="border-t border-slate-200 pt-6">
+  <h3 className="font-semibold text-slate-700 mb-4">
+    {isPersian ? 'مواد تشکیل‌دهنده' : 'Ingredients'}
+  </h3>
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div>
+      <label className="block text-sm font-medium text-slate-700 mb-1">
+        {labels.english}
+      </label>
+      <textarea
+        name="ingredientsEn"
+        value={formData.ingredientsEn}
+        onChange={handleChange}
+        rows={4}
+        className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400"
+        placeholder={isPersian ? 'هر خط یک مورد (انگلیسی)' : 'One per line (English)'}
+      />
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-slate-700 mb-1">
+        {labels.persian}
+      </label>
+      <textarea
+        name="ingredientsFa"
+        value={formData.ingredientsFa}
+        onChange={handleChange}
+        rows={4}
+        className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400"
+        dir="rtl"
+        placeholder={isPersian ? 'هر خط یک مورد (فارسی)' : 'One per line (Persian)'}
+      />
+    </div>
+  </div>
+</div>
 
       {/* Skin Types - MultiSelect */}
       <div>
@@ -593,6 +686,26 @@ export default function ProductForm({
                 placeholder="0.00"
               />
             </div>
+
+            <div>
+  <label className="block text-xs font-medium text-slate-500 mb-1">
+    تخفیف %
+  </label>
+  <input
+    type="number"
+    step="0.01"
+    min="0"
+    max="100"
+    value={variant.discountPercent ?? ''}
+    onChange={(e) => {
+      const val = e.target.value;
+      handleVariantChange(index, 'discountPercent', val === '' ? null : parseFloat(val));
+    }}
+    className="w-full px-3 py-1 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 text-sm"
+    placeholder="20"
+  />
+            </div>
+            
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">{labels.stock}</label>
               <input

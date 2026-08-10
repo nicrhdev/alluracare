@@ -16,27 +16,23 @@ interface CartClientProps {
     subtotal: string;
     total: string;
     remove: string;
-    quantity: string;
-    product: string;
-    price: string;
-  };
-  common: {
-    currency: string;
   };
 }
 
-export default function CartClient({ locale, t, common }: CartClientProps) {
+export default function CartClient({ locale, t }: CartClientProps) {
   const [mounted, setMounted] = useState(false);
   const { items, removeItem, updateQuantity, clearCart, getTotalPrice, getTotalItems } = useCartStore();
 
-  // Fix hydration mismatch
+  // ✅ Add isPersian here
+  const isPersian = locale === 'fa';
+
   useEffect(() => {
     setMounted(true);
   }, []);
 
   if (!mounted) {
     return (
-      <div className="bg-white rounded-xl shadow-soft border border-brand-secondary/20 p-8 text-center">
+      <div className="bg-white rounded-xl border border-brand-secondary/20 p-8 text-center">
         <p className="text-brand-text-secondary">Loading cart...</p>
       </div>
     );
@@ -45,24 +41,31 @@ export default function CartClient({ locale, t, common }: CartClientProps) {
   const totalItems = getTotalItems();
   const totalPrice = getTotalPrice();
 
-  // Format price
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat(locale === 'fa' ? 'fa-IR' : 'en-US', {
+    if (isPersian) {
+      const tomanRate = 185000;
+      const tomanPrice = price * tomanRate;
+      return new Intl.NumberFormat('fa-IR', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(tomanPrice) + ' تومان';
+    }
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
-      minimumFractionDigits: 2,
+      minimumFractionDigits: 0,
     }).format(price);
   };
 
   if (items.length === 0) {
     return (
-      <div className="bg-white rounded-xl shadow-soft border border-brand-secondary/20 p-12 text-center">
+      <div className="bg-white rounded-xl border border-brand-secondary/20 p-12 text-center">
         <div className="text-6xl mb-4">🛒</div>
         <h2 className="text-2xl font-semibold text-brand-text mb-2">
           {t.empty}
         </h2>
         <p className="text-brand-text-secondary mb-6">
-          {locale === 'fa'
+          {isPersian
             ? 'به نظر می‌رسد سبد خرید شما خالی است'
             : 'Looks like your cart is empty'}
         </p>
@@ -79,28 +82,28 @@ export default function CartClient({ locale, t, common }: CartClientProps) {
 
   return (
     <div className="space-y-6">
-      {/* Cart Items */}
-      <div className="bg-white rounded-xl shadow-soft border border-brand-secondary/20 overflow-hidden">
-        {/* Table Header - Desktop */}
-        <div className="hidden md:grid grid-cols-12 gap-4 p-4 bg-brand-pale-rose/30 border-b border-brand-secondary/20 text-sm font-medium text-brand-text-secondary">
-          <div className="col-span-6">{t.product}</div>
-          <div className="col-span-2 text-center">{t.price}</div>
-          <div className="col-span-2 text-center">{t.quantity}</div>
-          <div className="col-span-2 text-right">{t.total}</div>
+      {/* Cart Items Table */}
+      <div className="bg-white rounded-xl border border-brand-secondary/20 overflow-hidden">
+        {/* Header */}
+        <div className="hidden md:grid grid-cols-12 gap-4 p-4 bg-[#EDEDFA]/40 border-b border-brand-secondary/20 text-sm font-medium text-[#8A8A8A]">
+          <div className="col-span-6">{isPersian ? 'محصول' : 'Product'}</div>
+          <div className="col-span-2 text-center">{isPersian ? 'قیمت' : 'Price'}</div>
+          <div className="col-span-2 text-center">{isPersian ? 'تعداد' : 'Quantity'}</div>
+          <div className="col-span-2 text-right">{isPersian ? 'مجموع' : 'Total'}</div>
         </div>
 
-        {items.map((item) => {
+        {items.map((item: any) => {
+          const productName = isPersian ? item.nameFa : item.name;
           const itemTotal = item.price * item.quantity;
-          const productName = locale === 'fa' ? item.nameFa : item.name;
 
           return (
             <div
               key={item.id}
-              className="grid grid-cols-1 md:grid-cols-12 gap-4 p-4 border-b border-brand-secondary/10 last:border-b-0 items-center hover:bg-brand-pale-rose/10 transition"
+              className="grid grid-cols-1 md:grid-cols-12 gap-4 p-4 border-b border-brand-secondary/10 last:border-b-0 items-center hover:bg-[#EDEDFA]/10 transition"
             >
               {/* Product Info */}
               <div className="col-span-6 flex items-center gap-4">
-                <div className="w-16 h-16 bg-gradient-to-br from-brand-pale-rose to-brand-light rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+                <div className="w-16 h-16 rounded-lg bg-gradient-soft flex items-center justify-center flex-shrink-0 overflow-hidden">
                   {item.image ? (
                     <img
                       src={item.image}
@@ -114,18 +117,18 @@ export default function CartClient({ locale, t, common }: CartClientProps) {
                 <div>
                   <Link
                     href={`/${locale}/product/${item.slug}`}
-                    className="font-medium text-brand-text hover:text-brand-primary transition"
+                    className="font-medium text-[#2D2D2D] hover:text-[#874A58] transition"
                   >
                     {productName}
                   </Link>
-                  <p className="text-sm text-brand-text-secondary">
+                  <p className="text-sm text-[#8A8A8A]">
                     {item.brand} - {item.size}
                   </p>
                 </div>
               </div>
 
               {/* Price */}
-              <div className="col-span-2 text-center text-brand-text font-medium">
+              <div className="col-span-2 text-center text-[#2D2D2D] font-medium">
                 {formatPrice(item.price)}
               </div>
 
@@ -134,18 +137,16 @@ export default function CartClient({ locale, t, common }: CartClientProps) {
                 <div className="flex items-center border border-brand-secondary/30 rounded-lg overflow-hidden bg-white">
                   <button
                     onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))}
-                    className="px-3 py-1.5 hover:bg-brand-pale-rose text-brand-text-secondary hover:text-brand-primary transition"
-                    aria-label="Decrease quantity"
+                    className="px-3 py-1.5 hover:bg-[#EDEDFA] text-[#8A8A8A] hover:text-[#874A58] transition"
                   >
                     <Minus className="w-4 h-4" />
                   </button>
-                  <span className="px-3 py-1.5 min-w-[40px] text-center text-brand-text font-medium">
+                  <span className="px-3 py-1.5 min-w-[40px] text-center text-[#2D2D2D] font-medium">
                     {item.quantity}
                   </span>
                   <button
-                    onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                    className="px-3 py-1.5 hover:bg-brand-pale-rose text-brand-text-secondary hover:text-brand-primary transition"
-                    aria-label="Increase quantity"
+                    onClick={() => updateQuantity(item.id, Math.min(item.quantity + 1, item.maxStock))}
+                    className="px-3 py-1.5 hover:bg-[#EDEDFA] text-[#8A8A8A] hover:text-[#874A58] transition"
                     disabled={item.quantity >= item.maxStock}
                   >
                     <Plus className="w-4 h-4" />
@@ -155,13 +156,12 @@ export default function CartClient({ locale, t, common }: CartClientProps) {
 
               {/* Total & Remove */}
               <div className="col-span-2 flex items-center justify-end gap-4">
-                <span className="font-semibold text-brand-text">
+                <span className="font-semibold text-[#2D2D2D]">
                   {formatPrice(itemTotal)}
                 </span>
                 <button
                   onClick={() => removeItem(item.id)}
-                  className="p-1.5 text-brand-text-secondary hover:text-red-500 transition rounded-full hover:bg-red-50"
-                  aria-label={t.remove}
+                  className="p-1.5 text-[#8A8A8A] hover:text-red-500 transition rounded-full hover:bg-red-50"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -172,34 +172,32 @@ export default function CartClient({ locale, t, common }: CartClientProps) {
       </div>
 
       {/* Cart Summary */}
-      <div className="bg-white rounded-xl shadow-soft border border-brand-secondary/20 p-6">
+      <div className="bg-white rounded-xl border border-brand-secondary/20 p-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-          {/* Left - Summary Details */}
-          <div className="space-y-1 w-full md:w-auto">
+          <div className="space-y-1">
             <div className="flex items-baseline gap-2">
-              <span className="text-brand-text-secondary">{t.subtotal}:</span>
-              <span className="font-medium text-brand-text">{formatPrice(totalPrice)}</span>
+              <span className="text-[#8A8A8A]">{t.subtotal}:</span>
+              <span className="font-medium text-[#2D2D2D]">{formatPrice(totalPrice)}</span>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-brand-text-secondary">{t.total}:</span>
-              <span className="text-2xl font-bold text-brand-primary">{formatPrice(totalPrice)}</span>
+              <span className="text-[#8A8A8A]">{t.total}:</span>
+              <span className="text-2xl font-bold text-[#874A58]">{formatPrice(totalPrice)}</span>
             </div>
-            <p className="text-xs text-brand-text-secondary">
+            <p className="text-xs text-[#8A8A8A]">
               {totalItems} {totalItems === 1 ? 'item' : 'items'}
             </p>
           </div>
 
-          {/* Right - Actions */}
           <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
             <button
               onClick={clearCart}
-              className="px-6 py-2.5 border border-brand-secondary/40 rounded-lg text-brand-text-secondary hover:text-red-500 hover:border-red-200 hover:bg-red-50 transition text-sm font-medium"
+              className="px-6 py-2.5 border border-brand-secondary/40 rounded-lg text-[#8A8A8A] hover:text-red-500 hover:border-red-200 hover:bg-red-50 transition text-sm font-medium"
             >
-              {locale === 'fa' ? 'پاک کردن سبد' : 'Clear Cart'}
+              {isPersian ? 'پاک کردن سبد' : 'Clear Cart'}
             </button>
             <Link
               href={`/${locale}/shop`}
-              className="px-6 py-2.5 border border-brand-secondary/40 rounded-lg text-brand-text-secondary hover:text-brand-primary hover:border-brand-primary hover:bg-brand-pale-rose transition text-sm font-medium text-center"
+              className="px-6 py-2.5 border border-brand-secondary/40 rounded-lg text-[#8A8A8A] hover:text-[#874A58] hover:border-[#874A58] hover:bg-[#EDEDFA] transition text-sm font-medium text-center"
             >
               {t.continueShopping}
             </Link>
@@ -216,26 +214,18 @@ export default function CartClient({ locale, t, common }: CartClientProps) {
 
       {/* Trust Badges */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4">
-        <div className="text-center p-4 bg-white rounded-xl shadow-soft border border-brand-secondary/20">
-          <div className="text-2xl mb-1">🔒</div>
-          <p className="text-xs font-medium text-brand-text">Secure Checkout</p>
-          <p className="text-xs text-brand-text-secondary">SSL encrypted</p>
-        </div>
-        <div className="text-center p-4 bg-white rounded-xl shadow-soft border border-brand-secondary/20">
-          <div className="text-2xl mb-1">🚚</div>
-          <p className="text-xs font-medium text-brand-text">Free Shipping</p>
-          <p className="text-xs text-brand-text-secondary">On orders over $50</p>
-        </div>
-        <div className="text-center p-4 bg-white rounded-xl shadow-soft border border-brand-secondary/20">
-          <div className="text-2xl mb-1">💳</div>
-          <p className="text-xs font-medium text-brand-text">Secure Payment</p>
-          <p className="text-xs text-brand-text-secondary">Visa, Mastercard, PayPal</p>
-        </div>
-        <div className="text-center p-4 bg-white rounded-xl shadow-soft border border-brand-secondary/20">
-          <div className="text-2xl mb-1">💚</div>
-          <p className="text-xs font-medium text-brand-text">100% Natural</p>
-          <p className="text-xs text-brand-text-secondary">Cruelty-free products</p>
-        </div>
+        {[
+          { icon: '🔒', title: isPersian ? 'پرداخت امن' : 'Secure Checkout', desc: isPersian ? 'رمزگذاری شده' : 'SSL encrypted' },
+          { icon: '🚚', title: isPersian ? 'ارسال رایگان' : 'Free Shipping', desc: isPersian ? 'سفارش بالای ۵۰ دلار' : 'On orders over $50' },
+          { icon: '💳', title: isPersian ? 'پرداخت امن' : 'Secure Payment', desc: isPersian ? 'ویزا، مسترکارت' : 'Visa, Mastercard' },
+          { icon: '💚', title: isPersian ? 'طبیعی ۱۰۰٪' : '100% Natural', desc: isPersian ? 'بدون تست حیوانات' : 'Cruelty-free' },
+        ].map((badge, index) => (
+          <div key={index} className="text-center p-4 bg-white rounded-xl border border-brand-secondary/20">
+            <div className="text-2xl mb-1">{badge.icon}</div>
+            <p className="text-xs font-medium text-[#2D2D2D]">{badge.title}</p>
+            <p className="text-xs text-[#8A8A8A]">{badge.desc}</p>
+          </div>
+        ))}
       </div>
     </div>
   );

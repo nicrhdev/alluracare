@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { GripVertical, Trash2, Eye, EyeOff, Plus, Image, X, Save, Edit } from 'lucide-react';
+import CloudinaryUpload from '@/components/admin/CloudinaryUpload';
 
 interface HeroSlide {
   id: string;
@@ -253,39 +254,28 @@ export default function HeroManager({ slides: initialSlides, locale }: HeroManag
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-brand-text mb-1">
-                  {isPersian ? 'تصویر (آدرس)' : 'Image URL'} *
-                </label>
-                <input
-                  type="text"
-                  name="image"
-                  value={formData.image}
-                  onChange={handleChange}
-                  placeholder="https://images.unsplash.com/..."
-                  className="input-premium"
-                  required
-                />
-                <p className="text-xs text-brand-text-secondary mt-1">
-                  {isPersian
-                    ? 'از یک آدرس تصویر معتبر استفاده کنید'
-                    : 'Use a valid image URL'}
-                </p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-brand-text mb-1">
-                  {isPersian ? 'تصویر موبایل (اختیاری)' : 'Mobile Image (Optional)'}
-                </label>
-                <input
-                  type="text"
-                  name="imageMobile"
-                  value={formData.imageMobile}
-                  onChange={handleChange}
-                  placeholder="https://..."
-                  className="input-premium"
-                />
-              </div>
+            {/* Image Upload - Main */}
+            <div>
+              <CloudinaryUpload
+                value={formData.image}
+                onChange={(url) => setFormData(prev => ({ ...prev, image: url }))}
+                onRemove={() => setFormData(prev => ({ ...prev, image: '' }))}
+                label={isPersian ? 'تصویر اصلی *' : 'Main Image *'}
+                folder="hero-slides"
+                maxSize={10}
+              />
+            </div>
+
+            {/* Image Upload - Mobile */}
+            <div>
+              <CloudinaryUpload
+                value={formData.imageMobile}
+                onChange={(url) => setFormData(prev => ({ ...prev, imageMobile: url }))}
+                onRemove={() => setFormData(prev => ({ ...prev, imageMobile: '' }))}
+                label={isPersian ? 'تصویر موبایل (اختیاری)' : 'Mobile Image (Optional)'}
+                folder="hero-slides-mobile"
+                maxSize={10}
+              />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

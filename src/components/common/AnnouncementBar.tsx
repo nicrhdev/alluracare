@@ -2,50 +2,60 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
-import { X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 
 interface AnnouncementBarProps {
   locale: string;
 }
 
-const announcements = [
-  { id: 1, text: '✨ Free shipping on orders over $50', textFa: '✨ ارسال رایگان برای سفارش‌های بالای ۵۰ دلار' },
-  { id: 2, text: '🌿 New arrivals: Spring Collection', textFa: '🌿 محصولات جدید: مجموعه بهاری' },
-  { id: 3, text: '💫 Sign up and get 15% off your first order', textFa: '💫 ثبت‌نام کنید و ۱۵٪ تخفیف بگیرید' },
-];
+const messages = {
+  en: [
+    'Free shipping on orders over $50',
+    'Sign up and get 15% off your order',
+    '10% off your first order with "first1" coupon',
+  ],
+  fa: [
+    'ارسال رایگان برای سفارش‌های بالای ۳ میلیون تومان',
+    'با عضویت در وبسایت ۱۵٪ تخفیف بگیرید',
+    ' ۱۰٪ تخفیف روی اولین سفارش با کد تخفیف "first1" ',
+  ],
+};
 
 export default function AnnouncementBar({ locale }: AnnouncementBarProps) {
-  const [isVisible, setIsVisible] = useState(true);
-  const [currentIndex, setCurrentIndex] = useState(0);
   const isPersian = locale === 'fa';
+  const items = isPersian ? messages.fa : messages.en;
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % announcements.length);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, []);
-
-  if (!isVisible) return null;
-
-  const current = announcements[currentIndex];
-  const text = isPersian ? current.textFa : current.text;
+  // Duplicate items for seamless scrolling
+  const duplicatedItems = [...items, ...items];
 
   return (
-    <div className="relative bg-gradient-primary text-white py-2.5 overflow-hidden">
-      <div className="container-custom flex items-center justify-center">
-        <div className="flex items-center gap-2 text-sm font-medium animate-fade-in">
-          <span>{text}</span>
+    <div className="announcement-bar text-brand-primary py-2.5 overflow-hidden relative shadow-sm">
+      <div className="container-custom relative overflow-hidden">
+        <div className="scrolling-text flex gap-8 animate-scroll whitespace-nowrap w-max" ref={scrollRef}>
+          {duplicatedItems.map((message, index) => (
+            <span key={index} className="text-sm font-light tracking-wide">
+              {message}
+            </span>
+          ))}
         </div>
-        <button
-          onClick={() => setIsVisible(false)}
-          className="absolute right-4 text-white/80 hover:text-white transition p-1"
-          aria-label="Close announcement"
-        >
-          <X className="w-4 h-4" />
-        </button>
       </div>
+
+      <style>{`
+        .announcement-bar {
+          background: linear-gradient(135deg, #EDEDFA 0%, #C9CAE1 30%, #B8A2B7 60%, #C9CAE1 80%, #EDEDFA 100%);
+        }
+        @keyframes scroll {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        .animate-scroll {
+          animation: scroll 25s linear infinite;
+        }
+        .announcement-bar:hover .animate-scroll {
+          animation-play-state: paused;
+        }
+      `}</style>
     </div>
   );
 }

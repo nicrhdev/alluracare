@@ -2,446 +2,299 @@
 
 import { getTranslations } from 'next-intl/server';
 import { prisma } from '@/lib/prisma/client';
-import Link from 'next/link';
-import { ArrowRight, Sparkles, Star, Shield, Truck, Leaf, Heart } from 'lucide-react';
 import HeroSlideshow from '@/components/home/HeroSlideshow';
+import CategoryGrid from '@/components/home/CategoryGrid';
+import ProductGrid from '@/components/home/ProductGrid';
+import FeaturedBrands from '@/components/home/FeaturedBrands';
+import WhyChooseUs from '@/components/home/WhyChooseUs';
+import SkincareQuiz from '@/components/home/SkincareQuiz';
+import ReviewCarousel from '@/components/home/ReviewCarousel';
+import BlogPreview from '@/components/home/BlogPreview';
+import FAQAccordion from '@/components/home/FAQAccordion';
+import Newsletter from '@/components/home/Newsletter';
+import InstagramGallery from '@/components/home/InstagramGallery';
 
+interface CategoryWithCount {
+  id: string;
+  nameEn: string;
+  nameFa: string;
+  slug: string;
+  image: string | null;
+  productCount?: number;
+  products: { id: string }[];
+  [key: string]: any;
+}
 interface HomePageProps {
   params: Promise<{
     locale: string;
   }>;
 }
 
+// Sample FAQ data
+const faqData = [
+  {
+    id: '1',
+    questionEn: 'What is the best skincare routine for my skin type?',
+    questionFa: 'بهترین روتین مراقبت از پوست برای نوع پوست من چیست؟',
+    answerEn: 'The best routine depends on your skin type. Generally, it includes cleansing, toning, moisturizing, and sun protection. Our skin quiz can help you find the perfect routine.',
+    answerFa: 'بهترین روتین به نوع پوست شما بستگی دارد. یک روتین مراقبتی به طور کلی شامل پاکسازی، مرطوب‌کنندگی و محافظت در برابر آفتاب است، اما با توجه به نوع پوست و مشکلات پوستی مختص به شما ممکن است به استفاده از محصولات درمانی نیز نیاز داشته باشید. تست پوست ما می‌تواند به شما در پیدا کردن روتین مناسب کمک کند.',
+  },
+  {
+    id: '3',
+    questionEn: 'How long does shipping take?',
+    questionFa: 'ارسال چقدر طول می‌کشد؟',
+    answerEn: 'Standard shipping takes 3-5 business days. Express shipping is available for 1-2 business days.',
+    answerFa: 'ارسال معمولی ۳-۵ روز کاری طول می‌کشد. اما امکان ارسال سریع در ۱-۲ روز کاری نیز در دسترس است.',
+  },
+  {
+    id: '5',
+    questionEn: 'What is your return policy?',
+    questionFa: 'روند عودت کالا به چه صورت است؟',
+    answerEn: 'We offer a 30-day return policy for all products. Simply contact our support team to initiate a return.',
+    answerFa: 'ما سیاست عودت وجه ۳۰ روزه برای تمام محصولات داریم. شما می‌توانید با تماس با تیم پشتیبانی ما از شرایط بازگرداندن کالا آگاه شوید و فرآیند بازگشت کالا را انجام بدهید.',
+  },
+];
+
+// Sample Instagram posts
+const instagramPosts = [
+  { id: '1', image: '/images/insta-1.jpg', likes: 1234, comments: 56, url: '#' },
+  { id: '2', image: '/images/insta-2.jpg', likes: 892, comments: 34, url: '#' },
+  { id: '3', image: '/images/insta-3.jpg', likes: 2100, comments: 89, url: '#' },
+  { id: '4', image: '/images/insta-4.jpg', likes: 1567, comments: 67, url: '#' },
+  { id: '5', image: '/images/insta-5.jpg', likes: 945, comments: 42, url: '#' },
+  { id: '6', image: '/images/insta-6.jpg', likes: 1876, comments: 73, url: '#' },
+  { id: '7', image: '/images/insta-7.jpg', likes: 1123, comments: 51, url: '#' },
+  { id: '8', image: '/images/insta-8.jpg', likes: 2345, comments: 98, url: '#' },
+];
+
 export default async function HomePage({ params }: HomePageProps) {
   const { locale } = await params;
   const t = await getTranslations('home');
-
   const isPersian = locale === 'fa';
 
-  // Fetch active hero slides
+  // Fetch data
   const heroSlides = await prisma.heroSlide.findMany({
     where: { isActive: true },
     orderBy: { order: 'asc' },
   });
 
-  // Fetch new arrivals (newest products first)
-  const newArrivals = await prisma.product.findMany({
-    where: {
-      isActive: true,
-      status: 'PUBLISHED',
+  const categories = await prisma.category.findMany({
+    where: { isActive: true },
+    orderBy: { order: 'asc' },
+    include: {
+      products: {
+        where: { isActive: true, status: 'PUBLISHED' },
+        select: { id: true },
+      },
     },
+  });
+
+  // Format categories with product count
+  const categoriesWithCount = categories.map((cat: CategoryWithCount) => ({
+  ...cat,
+  productCount: cat.products.length,
+}));
+
+  // Fetch products for "New Arrivals"
+  const newArrivals = await prisma.product.findMany({
+    where: { isActive: true, status: 'PUBLISHED' },
     include: {
       variants: true,
       category: true,
     },
     orderBy: { createdAt: 'desc' },
-    take: 4,
+    take: 8,
   });
 
-  // Fetch categories
-  const categories = await prisma.category.findMany({
-    where: { isActive: true },
-    orderBy: { order: 'asc' },
-    take: 6,
-  });
-
-  // Fetch concerns with product counts
-  const concerns = await prisma.concern.findMany({
-    where: { isActive: true },
-    orderBy: { order: 'asc' },
+  // Fetch products for "Best Sellers" (most ordered)
+  const bestSellers = await prisma.product.findMany({
+    where: { isActive: true, status: 'PUBLISHED' },
     include: {
-      products: {
-        select: {
-          productId: true,
+      variants: true,
+      category: true,
+    },
+    orderBy: { createdAt: 'desc' }, // Replace with actual order count logic
+    take: 8,
+  });
+
+  // Fetch Sale Products
+const saleProducts = await prisma.product.findMany({
+  where: {
+    isActive: true,
+    status: 'PUBLISHED',
+    variants: {
+      some: {
+        discountPercent: {
+          gt: 0, // Any product with discount > 0
         },
       },
     },
-  });
+  },
+  include: {
+    variants: true,
+    category: true,
+  },
+  take: 8,
+});
 
-  // Get product counts for each concern
-  const concernsWithCounts = concerns.map((concern) => ({
-    ...concern,
-    productCount: concern.products.length,
-  }));
+  const brands = [
+  { id: '1', name: 'Anua', slug: 'anua', logo: '/images/brand-1.png' },
+  { id: '2', name: 'Beauty of Joseon', slug: 'beauty-of-joseon', logo: '/images/brand-2.png' },
+  { id: '3', name: 'SKIN1004', slug: 'skin-1004', logo: '/images/brand-3.png' },
+  { id: '4', name: 'Medicube', slug: 'medicube', logo: '/images/brand-4.png' },
+  { id: '5', name: 'AXIS-Y', slug: 'axis-y', logo: '/images/brand-5.png' },
+  { id: '6', name: 'Dr.Althea', slug: 'dr-althea', logo: '/images/brand-6.png' },
+  { id: '7', name: 'COSRX', slug: 'cosrx', logo: '/images/brand-7.png' },
+  { id: '8', name: 'LANEIGE', slug: 'laneige', logo: '/images/brand-8.png' },
+  { id: '9', name: 'TOCOBO', slug: 'tocobo', logo: '/images/brand-9.png' },
+  { id: '10', name: 'Purito', slug: 'purito', logo: '/images/brand-10.png' },
+  { id: '11', name: 'numbuzin', slug: 'numbuzin', logo: '/images/brand-11.png' },
+  { id: '12', name: 'The Ordinary', slug: 'the-ordinary', logo: '/images/brand-12.png' },
+  { id: '13', name: 'K-SECRET', slug: 'k-secret', logo: '/images/brand-13.png' },
+  { id: '14', name: 'SOME BY MI', slug: 'some-by-mi', logo: '/images/brand-14.png' },
+  { id: '15', name: 'La Roche-Posay', slug: 'la-roche-posay', logo: '/images/brand-15.png' },
+  { id: '16', name: 'Arencia', slug: 'arencia', logo: '/images/brand-16.png' },
+];
 
-  // Concerns icons mapping
-  const concernIcons: Record<string, string> = {
-    'acne-breakouts': '🧊',
-    'acne-scars': '🔬',
-    'dark-spots': '☀️',
-    'brightening-dullness': '✨',
-    'dry-dehydrated': '💧',
-    'oily-skin': '💫',
-    'sensitive-skin': '🫧',
-    redness: '🌸',
-    'large-pores': '🔍',
-    'blackheads-whiteheads': '⚫',
-    'anti-aging': '🌟',
-    'fine-lines-wrinkles': '📏',
-    'loss-of-firmness': '🌊',
-    'skin-barrier-repair': '🛡️',
-    'uneven-texture': '🌀',
-  };
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat(locale === 'fa' ? 'fa-IR' : 'en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-    }).format(price);
-  };
-
-  // Why Choose Us data
-  const whyChooseUs = [
-    {
-      icon: Leaf,
-      titleEn: '100% Natural',
-      titleFa: '۱۰۰٪ طبیعی',
-      descEn: 'Made with the finest natural ingredients',
-      descFa: 'ساخته شده با بهترین مواد طبیعی',
-    },
-    {
-      icon: Heart,
-      titleEn: 'Cruelty-Free',
-      titleFa: 'بدون تست روی حیوانات',
-      descEn: 'Never tested on animals',
-      descFa: 'هرگز روی حیوانات تست نشده',
-    },
-    {
-      icon: Shield,
-      titleEn: 'Quality Guaranteed',
-      titleFa: 'کیفیت تضمینی',
-      descEn: 'Premium quality products',
-      descFa: 'محصولات با کیفیت برتر',
-    },
-    {
-      icon: Truck,
-      titleEn: 'Fast Shipping',
-      titleFa: 'ارسال سریع',
-      descEn: 'Free shipping on orders over $50',
-      descFa: 'ارسال رایگان برای سفارش‌های بالای ۵۰ دلار',
-    },
-  ];
-
-  // Sample reviews
+  // Sample reviews - replace with actual reviews from database
   const reviews = [
     {
+      id: '1',
       name: 'Sarah M.',
       rating: 5,
       textEn: 'Absolutely love this product! My skin has never felt better.',
       textFa: 'واقعاً عاشق این محصول شدم! پوست من هرگز اینقدر خوب نبوده.',
+      date: '2024-01-15',
     },
     {
+      id: '2',
       name: 'Jessica K.',
       rating: 5,
       textEn: 'The best skincare routine I\'ve ever had. Highly recommend!',
       textFa: 'بهترین روتین مراقبت از پوستی که تا به حال داشته‌ام. به شدت توصیه می‌کنم!',
+      date: '2024-01-20',
     },
     {
+      id: '3',
       name: 'Emily R.',
       rating: 4,
       textEn: 'Great quality products that actually work. Will buy again.',
       textFa: 'محصولات با کیفیت عالی که واقعاً کار می‌کنند. دوباره خرید خواهم کرد.',
+      date: '2024-02-01',
+    },
+  ];
+
+  // Sample blog posts - replace with actual blog posts from database
+  const blogPosts = [
+    {
+      id: '1',
+      titleEn: 'The Ultimate Guide to Korean Skincare',
+      titleFa: 'راهنمای جامع مراقبت از پوست کرهای',
+      slug: 'ultimate-guide-korean-skincare',
+      excerptEn: 'Discover the secrets of K-beauty and how to achieve that glass skin glow.',
+      excerptFa: 'اسرار زیبایی کرهای و چگونه به درخشش پوست شیشه‌ای دست پیدا کنید.',
+      image: '/images/blog-1.jpg',
+      categoryEn: 'Skincare',
+      categoryFa: 'مراقبت از پوست',
+      date: '2024-02-10',
+      readTime: 5,
+    },
+    {
+      id: '2',
+      titleEn: 'Understanding Your Skin Type',
+      titleFa: 'شناخت نوع پوست شما',
+      slug: 'understanding-skin-type',
+      excerptEn: 'Learn how to identify your skin type and choose the right products.',
+      excerptFa: 'یاد بگیرید چگونه نوع پوست خود را شناسایی کنید و محصولات مناسب را انتخاب کنید.',
+      image: '/images/blog-2.jpg',
+      categoryEn: 'Education',
+      categoryFa: 'آموزشی',
+      date: '2024-02-15',
+      readTime: 4,
+    },
+    {
+      id: '3',
+      titleEn: 'The Benefits of Vitamin C for Skin',
+      titleFa: 'فواید ویتامین C برای پوست',
+      slug: 'benefits-vitamin-c-skin',
+      excerptEn: 'Discover why Vitamin C is a must-have in your skincare routine.',
+      excerptFa: 'کشف کنید چرا ویتامین C یک ضرورت در روتین مراقبت از پوست شماست.',
+      image: '/images/blog-3.jpg',
+      categoryEn: 'Ingredients',
+      categoryFa: 'مواد تشکیل‌دهنده',
+      date: '2024-02-20',
+      readTime: 6,
     },
   ];
 
   return (
     <div className="min-h-screen">
-      {/* Hero Slideshow */}
+      {/* Hero */}
       <HeroSlideshow slides={heroSlides} locale={locale} />
 
-      {/* Categories Section */}
-      {categories.length > 0 && (
-        <section className="py-16 bg-brand-background">
-          <div className="container-custom">
-            <div className="section-header animate-fade-up">
-              <span className="text-sm font-medium text-brand-primary bg-brand-pale-rose px-3 py-1 rounded-full inline-block">
-                {isPersian ? 'دسته‌بندی‌ها' : 'Categories'}
-              </span>
-              <h2>
-                {isPersian ? 'دسته‌بندی محصولات' : 'Shop by'}
-                <span className="highlight"> {isPersian ? 'محصولات' : 'Category'}</span>
-              </h2>
-              <p className="subtitle">
-                {isPersian ? 'محصولات را بر اساس دسته‌بندی مرور کنید' : 'Browse products by category'}
-              </p>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              {categories.map((category, index) => (
-                <Link
-                  key={category.id}
-                  href={`/${locale}/shop?category=${category.slug}`}
-                  className="group bg-white rounded-xl p-6 text-center transition-all hover:shadow-soft-hover hover:-translate-y-2 border border-brand-secondary/10 animate-stagger-fade"
-                  style={{ animationDelay: `${index * 0.05}s` }}
-                >
-                  <div className="text-3xl mb-2 group-hover:scale-110 transition-transform">✨</div>
-                  <h3 className="text-sm font-medium text-brand-text group-hover:text-brand-primary transition">
-                    {isPersian ? category.nameFa : category.nameEn}
-                  </h3>
-                  <p className="text-xs text-brand-text-secondary mt-1">
-                    {isPersian ? 'مشاهده' : 'View'}
-                  </p>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
+      {/* Categories */}
+      <CategoryGrid categories={categoriesWithCount} locale={locale} />
 
-      {/* Skin Concerns Section */}
-      {concernsWithCounts.length > 0 && (
-        <section className="py-16 bg-white">
-          <div className="container-custom">
-            <div className="section-header animate-fade-up">
-              <span className="text-sm font-medium text-brand-primary bg-brand-pale-rose px-3 py-1 rounded-full inline-block">
-                {isPersian ? 'مشکلات پوستی' : 'Skin Concerns'}
-              </span>
-              <h2>
-                {isPersian ? 'بر اساس' : 'Shop by'}
-                <span className="highlight"> {isPersian ? 'مشکلات پوستی' : 'Skin Concern'}</span>
-              </h2>
-              <p className="subtitle">
-                {isPersian
-                  ? 'محصولات مناسب برای نیازهای خاص پوست خود را پیدا کنید'
-                  : 'Find products tailored to your specific skin needs'}
-              </p>
-            </div>
+      {/* New Arrivals */}
+      <ProductGrid
+        products={newArrivals}
+        locale={locale}
+        title={isPersian ? 'محصولات جدید' : 'New Arrivals'}
+        subtitle={isPersian
+          ? 'جدیدترین محصولات اضافه شده به فروشگاه'
+          : 'The latest products added to our store'}
+        viewAllLink={`/${locale}/shop`}
+        showBadge
+        badgeText={isPersian ? 'جدید' : 'New'}
+      />
 
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {concernsWithCounts.map((concern, index) => {
-                const icon = concernIcons[concern.slug] || '🌸';
-                const name = isPersian ? concern.nameFa : concern.nameEn;
+      {/* Best Sellers */}
+      <ProductGrid
+        products={bestSellers}
+        locale={locale}
+        title={isPersian ? 'پرفروش‌ترین‌ها' : 'Best Sellers'}
+        subtitle={isPersian
+          ? 'محصولات محبوب و پرطرفدار مشتریان'
+          : 'Our customers\' favorite products'}
+        viewAllLink={`/${locale}/shop`}
+      />
 
-                return (
-                  <Link
-                    key={concern.id}
-                    href={`/${locale}/shop?concern=${concern.slug}`}
-                    className="group relative bg-gradient-to-br from-brand-pale-rose/30 to-brand-light/30 rounded-2xl p-6 text-center transition-all duration-300 hover:shadow-soft-hover hover:-translate-y-2 border border-brand-secondary/10 overflow-hidden animate-stagger-fade"
-                    style={{ animationDelay: `${index * 0.06}s` }}
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-br from-brand-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                    <div className="text-4xl mb-3 group-hover:scale-110 transition-transform duration-300 relative z-10">
-                      {icon}
-                    </div>
-                    <h3 className="text-sm font-semibold text-brand-text group-hover:text-brand-primary transition relative z-10">
-                      {name}
-                    </h3>
-                    <p className="text-xs text-brand-text-secondary mt-1 relative z-10">
-                      {concern.productCount}{' '}
-                      {isPersian ? 'محصول' : 'products'}
-                    </p>
-                    <div className="absolute -bottom-4 -right-4 w-16 h-16 rounded-full bg-brand-pale-rose/20 group-hover:scale-150 transition-transform duration-500"></div>
-                  </Link>
-                );
-              })}
-            </div>
+      {/* Sale */}
+      {saleProducts.length > 0 && (
+      <ProductGrid
+    products={saleProducts}
+    locale={locale}
+    title={isPersian ? 'تخفیف‌های ویژه' : 'Sale'}
+    subtitle={isPersian
+      ? 'محصولات با تخفیف ویژه'
+      : 'Products with special discounts'}
+    viewAllLink={`/${locale}/shop`}
+        showBadge={false}
+    badgeText={isPersian ? 'تخفیف' : 'SALE'}
+  />
+)}
 
-            <div className="text-center mt-10">
-              <Link
-                href={`/${locale}/shop`}
-                className="inline-flex items-center gap-2 text-brand-primary hover:text-brand-hover font-medium transition group"
-              >
-                {isPersian ? 'مشاهده همه محصولات' : 'View All Products'}
-                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-              </Link>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* New Arrivals Section */}
-      {newArrivals.length > 0 && (
-        <section className="py-16 bg-brand-background">
-          <div className="container-custom">
-            <div className="section-header animate-fade-up">
-              <span className="text-sm font-medium text-brand-primary bg-brand-pale-rose px-3 py-1 rounded-full inline-block">
-                {isPersian ? 'جدید' : 'New'}
-              </span>
-              <h2>
-                {isPersian ? 'محصولات' : 'New'}
-                <span className="highlight"> {isPersian ? 'جدید' : 'Arrivals'}</span>
-              </h2>
-              <p className="subtitle">
-                {isPersian
-                  ? 'جدیدترین محصولات添加到 فروشگاه'
-                  : 'The latest products added to our store'}
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {newArrivals.map((product, index) => {
-                const lowestPrice = Math.min(...product.variants.map((v) => v.price));
-                const productImage = product.images?.[0] || null;
-
-                return (
-                  <Link
-                    key={product.id}
-                    href={`/${locale}/product/${product.slug}`}
-                    className="product-card group animate-stagger-fade"
-                    style={{ animationDelay: `${index * 0.1}s` }}
-                  >
-                    <div className="product-image">
-                      {productImage ? (
-                        <img
-                          src={productImage}
-                          alt={isPersian ? product.nameFa : product.nameEn}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-5xl">
-                          🧴
-                        </div>
-                      )}
-                      <div className="image-overlay"></div>
-                      <div className="absolute top-3 left-3 z-10">
-                        <span className="badge badge-gold text-xs">
-                          {isPersian ? 'جدید' : 'New'}
-                        </span>
-                      </div>
-                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                        <span className="bg-white/90 backdrop-blur-sm text-brand-primary text-sm font-medium px-4 py-2 rounded-full shadow-soft">
-                          {isPersian ? 'مشاهده محصول' : 'View Product'}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="product-info">
-                      <h3 className="product-name group-hover:text-brand-primary transition">
-                        {isPersian ? product.nameFa : product.nameEn}
-                      </h3>
-                      <p className="product-brand">{product.brand}</p>
-                      <div className="flex items-center justify-between mt-2">
-                        <span className="product-price">{formatPrice(lowestPrice)}</span>
-                        <span className="text-xs text-brand-text-secondary bg-brand-pale-rose px-2 py-1 rounded-full">
-                          {isPersian ? product.category.nameFa : product.category.nameEn}
-                        </span>
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-
-            <div className="text-center mt-10">
-              <Link href={`/${locale}/shop`} className="btn-primary group">
-                {isPersian ? 'مشاهده همه محصولات' : 'View All Products'}
-                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-              </Link>
-            </div>
-          </div>
-        </section>
-      )}
+      {/* Featured Brands */}
+      <FeaturedBrands brands={brands} locale={locale} />
 
       {/* Why Choose Us */}
-      <section className="py-16 bg-white">
-        <div className="container-custom">
-          <div className="section-header animate-fade-up">
-            <span className="text-sm font-medium text-brand-primary bg-brand-pale-rose px-3 py-1 rounded-full inline-block">
-              {isPersian ? 'چرا ما؟' : 'Why Us'}
-            </span>
-            <h2>
-              {isPersian ? 'چرا' : 'Why'}
-              <span className="highlight"> {isPersian ? 'آلوراکیـر' : 'AlluraCare'}</span>
-            </h2>
-            <p className="subtitle">
-              {isPersian
-                ? 'ما به کیفیت و مراقبت از پوست شما اهمیت می‌دهیم'
-                : 'We care about quality and your skin'}
-            </p>
-          </div>
+      <WhyChooseUs locale={locale} />
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {whyChooseUs.map((item, index) => {
-              const Icon = item.icon;
-              return (
-                <div
-                  key={index}
-                  className="text-center p-6 rounded-2xl bg-brand-pale-rose/20 hover:bg-brand-pale-rose/40 transition-all duration-300 animate-stagger-fade"
-                  style={{ animationDelay: `${index * 0.1}s` }}
-                >
-                  <div className="w-12 h-12 rounded-full bg-brand-primary/10 flex items-center justify-center mx-auto mb-3">
-                    <Icon className="w-6 h-6 text-brand-primary" />
-                  </div>
-                  <h3 className="font-semibold text-brand-text text-sm">
-                    {isPersian ? item.titleFa : item.titleEn}
-                  </h3>
-                  <p className="text-xs text-brand-text-secondary mt-1">
-                    {isPersian ? item.descFa : item.descEn}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
+      {/* Skincare Quiz */}
+      <SkincareQuiz locale={locale} />
 
-      {/* Customer Reviews */}
-      <section className="py-16 bg-brand-background">
-        <div className="container-custom">
-          <div className="section-header animate-fade-up">
-            <span className="text-sm font-medium text-brand-primary bg-brand-pale-rose px-3 py-1 rounded-full inline-block">
-              {isPersian ? 'نظرات مشتریان' : 'Reviews'}
-            </span>
-            <h2>
-              {isPersian ? 'نظرات' : 'What Our'}
-              <span className="highlight"> {isPersian ? 'مشتریان' : 'Customers Say'}</span>
-            </h2>
-          </div>
+      {/* Blog Preview */}
+      <BlogPreview posts={blogPosts} locale={locale} />
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {reviews.map((review, index) => (
-              <div
-                key={index}
-                className="bg-white rounded-2xl p-6 shadow-soft border border-brand-secondary/10 animate-stagger-fade"
-                style={{ animationDelay: `${index * 0.1}s` }}
-              >
-                <div className="flex items-center gap-1 mb-2">
-                  {[...Array(5)].map((_, i) => (
-                    <Star
-                      key={i}
-                      className={`w-4 h-4 ${i < review.rating ? 'fill-current text-yellow-400' : 'text-slate-200'}`}
-                    />
-                  ))}
-                </div>
-                <p className="text-brand-text-secondary text-sm italic">
-                  "{isPersian ? review.textFa : review.textEn}"
-                </p>
-                <p className="text-sm font-medium text-brand-text mt-3">
-                  — {review.name}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* FAQ */}
+      <FAQAccordion faqs={faqData} locale={locale} />
+
+      {/* Instagram Gallery */}
+      <InstagramGallery posts={instagramPosts} locale={locale} />
 
       {/* Newsletter */}
-      <section className="py-16 bg-gradient-primary text-white">
-        <div className="container-custom text-center">
-          <div className="max-w-2xl mx-auto animate-fade-up">
-            <h2 className="text-3xl font-bold mb-2">
-              {isPersian ? 'عضویت در خبرنامه' : 'Join Our Newsletter'}
-            </h2>
-            <p className="text-white/80 mb-6">
-              {isPersian
-                ? 'از جدیدترین محصولات و تخفیف‌های ویژه مطلع شوید'
-                : 'Stay updated with our latest products and exclusive offers'}
-            </p>
-            <form className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
-              <input
-                type="email"
-                placeholder={isPersian ? 'ایمیل خود را وارد کنید' : 'Enter your email'}
-                className="flex-1 px-4 py-3 rounded-xl bg-white/20 backdrop-blur-sm border border-white/30 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/50"
-              />
-              <button
-                type="submit"
-                className="px-6 py-3 bg-white text-brand-primary rounded-xl font-medium hover:bg-white/90 transition"
-              >
-                {isPersian ? 'عضویت' : 'Subscribe'}
-              </button>
-            </form>
-          </div>
-        </div>
-      </section>
+      <Newsletter locale={locale} />
     </div>
   );
 }

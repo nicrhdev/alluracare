@@ -39,9 +39,19 @@ export default function FilterBar({
 
   // Update URL when filters change
   useEffect(() => {
-    const params = new URLSearchParams();
-    if (category) params.set('category', category);
-    if (search) params.set('search', search);
+    const params = new URLSearchParams(window.location.search);
+    if (category) {
+      params.set('category', category);
+    } else {
+      params.delete('category');
+    }
+    if (search) {
+      params.set('search', search);
+    } else {
+      params.delete('search');
+    }
+    // Reset to page 1 when filtering
+    params.set('page', '1');
 
     const queryString = params.toString();
     const url = queryString ? `${pathname}?${queryString}` : pathname;
@@ -51,6 +61,14 @@ export default function FilterBar({
   const clearFilters = () => {
     setCategory('');
     setSearch('');
+    // Clear all search params
+    const params = new URLSearchParams(window.location.search);
+    params.delete('category');
+    params.delete('search');
+    params.delete('page');
+    const queryString = params.toString();
+    const url = queryString ? `${pathname}?${queryString}` : pathname;
+    router.push(url);
   };
 
   const hasFilters = category || search;
@@ -76,7 +94,7 @@ export default function FilterBar({
 
         {/* Search Input */}
         <div className="flex-1 min-w-[200px] relative">
-          <div className={`relative flex items-center transition-all duration-300 ${isSearchFocused ? 'ring-2 ring-brand-primary/20' : ''}`}>
+          <div className={`relative flex items-center transition-all duration-300 ${isSearchFocused ? 'ring-2 ring-brand-primary/20 rounded-lg' : ''}`}>
             <Search className={`absolute left-3 w-4 h-4 transition-colors ${isSearchFocused ? 'text-brand-primary' : 'text-brand-text-secondary'}`} />
             <input
               type="text"

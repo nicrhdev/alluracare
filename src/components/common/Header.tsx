@@ -6,12 +6,19 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  Menu, X, Heart, ShoppingBag, User, Search,
-  ChevronDown, Sparkles
+  Menu,
+  X,
+  Heart,
+  ShoppingBag,
+  User,
+  Search,
+  ChevronDown,
+  LogIn,
+  Globe,
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
-import { useTranslations } from 'next-intl';
-import CartIcon from './CartIcon';
+import { useCartStore } from '@/store/cartStore';
+import CartDrawer from '@/components/cart/CartDrawer';
 
 interface HeaderProps {
   locale: string;
@@ -32,19 +39,16 @@ const categories = [
 const concerns = [
   { nameEn: 'Acne & Breakouts', nameFa: 'آکنه و جوش', slug: 'acne-breakouts' },
   { nameEn: 'Acne Scars', nameFa: 'جای جوش', slug: 'acne-scars' },
-  { nameEn: 'Dark Spots & Hyperpigmentation', nameFa: 'لکه‌های تیره و هایپرپیگمنتیشن', slug: 'dark-spots' },
-  { nameEn: 'Brightening & Dullness', nameFa: 'روشن‌کنندگی و رفع کدری', slug: 'brightening-dullness' },
-  { nameEn: 'Dry & Dehydrated Skin', nameFa: 'پوست خشک و دهیدراته', slug: 'dry-dehydrated' },
+  { nameEn: 'Dark Spots', nameFa: 'لکه‌های تیره', slug: 'dark-spots' },
+  { nameEn: 'Brightening & Dullness', nameFa: 'روشن‌کنندگی', slug: 'brightening-dullness' },
+  { nameEn: 'Dry & Dehydrated', nameFa: 'پوست خشک', slug: 'dry-dehydrated' },
   { nameEn: 'Oily Skin', nameFa: 'پوست چرب', slug: 'oily-skin' },
   { nameEn: 'Sensitive Skin', nameFa: 'پوست حساس', slug: 'sensitive-skin' },
   { nameEn: 'Redness', nameFa: 'قرمزی و التهاب', slug: 'redness' },
   { nameEn: 'Large Pores', nameFa: 'منافذ باز', slug: 'large-pores' },
-  { nameEn: 'Blackheads & Whiteheads', nameFa: 'جوش سرسیاه و سرسفید', slug: 'blackheads-whiteheads' },
   { nameEn: 'Anti-Aging', nameFa: 'جوانسازی', slug: 'anti-aging' },
-  { nameEn: 'Fine Lines & Wrinkles', nameFa: 'خطوط ریز و چین و چروک', slug: 'fine-lines-wrinkles' },
+  { nameEn: 'Fine Lines & Wrinkles', nameFa: 'خطوط ریز', slug: 'fine-lines-wrinkles' },
   { nameEn: 'Loss of Firmness', nameFa: 'افتادگی پوست', slug: 'loss-of-firmness' },
-  { nameEn: 'Skin Barrier Repair', nameFa: 'ترمیم سد دفاعی پوست', slug: 'skin-barrier-repair' },
-  { nameEn: 'Uneven Texture', nameFa: 'بافت ناهموار', slug: 'uneven-texture' },
 ];
 
 export default function Header({ locale }: HeaderProps) {
@@ -52,55 +56,77 @@ export default function Header({ locale }: HeaderProps) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isCartOpen, setIsCartOpen] = useState(false);
   const pathname = usePathname();
   const { data: session } = useSession();
-  const t = useTranslations('navigation');
   const dropdownRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Get cart items
+  const items = useCartStore((state) => state.items);
+  const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
 
   const isPersian = locale === 'fa';
 
   // Handle scroll effect
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 10);
+      setIsScrolled(window.scrollY > 20);
     };
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Close dropdown with delay to allow moving to it
+  // Close dropdown with delay
   const handleMouseLeave = () => {
     timeoutRef.current = setTimeout(() => {
       setOpenDropdown(null);
     }, 150);
   };
 
-  const handleMouseEnter = () => {
+  const handleMouseEnter = (dropdown: string) => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
-    setOpenDropdown('categories');
+    setOpenDropdown(dropdown);
   };
 
-  // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
   }, []);
+
+  // Close mobile menu on escape
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsMenuOpen(false);
+        setIsSearchOpen(false);
+        setIsCartOpen(false);
+      }
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, []);
+
+  // Lock body scroll when mobile menu is open
+  useEffect(() => {
+    if (isMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isMenuOpen]);
 
   const isActive = (path: string) => {
     return pathname === `/${locale}${path}` || pathname?.startsWith(`/${locale}${path}`);
   };
-
-  const navLinks = [
-    { href: '/shop', label: t('shop') },
-    { href: '/about', label: t('about') },
-  ];
 
   const getCategoryName = (cat: { nameEn: string; nameFa: string }) => {
     return isPersian ? cat.nameFa : cat.nameEn;
@@ -110,193 +136,316 @@ export default function Header({ locale }: HeaderProps) {
     return isPersian ? concern.nameFa : concern.nameEn;
   };
 
+  const navLinks = [
+    { href: '/shop', label: isPersian ? 'فروشگاه' : 'Shop' },
+    { href: '/about', label: isPersian ? 'درباره ما' : 'About' },
+  ];
+
   const megaMenuItems = [
     {
+      id: 'categories',
       title: isPersian ? 'محصولات' : 'Products',
       items: categories,
       getLabel: getCategoryName,
-      param: 'category'
+      param: 'category',
     },
     {
+      id: 'concerns',
       title: isPersian ? 'مشکلات پوستی' : 'Skin Concerns',
       items: concerns,
       getLabel: getConcernName,
-      param: 'concern'
+      param: 'concern',
     },
   ];
 
-  return (
-    <header
-      className={`sticky top-0 z-50 transition-all duration-300 ${
-        isScrolled
-          ? 'bg-white/95 backdrop-blur-md shadow-soft border-b border-brand-secondary/20'
-          : 'bg-white/80 backdrop-blur-sm border-b border-brand-secondary/10'
-      }`}
-    >
-      <div className="container-custom">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link
-            href={`/${locale}`}
-            className="flex items-center gap-2 text-xl font-bold text-brand-primary hover:text-brand-hover transition group"
-          >
-            <Sparkles className="w-5 h-5 text-brand-primary group-hover:rotate-12 transition-transform duration-300" />
-            <span>AlluraCare</span>
-          </Link>
+  // Popular searches
+  const popularSearches = isPersian
+    ? ['سرم', 'مرطوب‌کننده', 'ضدآفتاب', 'پاک‌کننده']
+    : ['Serum', 'Moisturizer', 'Sunscreen', 'Cleanser'];
 
-          {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center gap-8">
-            {/* Categories with Mega Menu */}
-            <div
-              ref={dropdownRef}
-              className="relative"
-              onMouseEnter={handleMouseEnter}
-              onMouseLeave={handleMouseLeave}
-            >
+  return (
+    <>
+      {/* Main Header */}
+      <header className={`header-main ${isScrolled ? 'scrolled' : ''}`}>
+        <div className="container-custom">
+          <div className="flex items-center justify-between h-16 lg:h-20">
+           {/* Logo */}
+<Link
+  href={`/${locale}`}
+  className="flex items-center shrink-0"
+>
+  <img
+    src="/logo.png"
+    alt="AlluraCare"
+    className="h-10 md:h-18 w-auto object-contain"
+  />
+</Link>
+
+            {/* Desktop Navigation */}
+            <nav className="hidden lg:flex items-center gap-6 xl:gap-8 mx-4">
+              {megaMenuItems.map((section) => (
+                <div
+                  key={section.id}
+                  ref={dropdownRef}
+                  className="mega-menu-trigger"
+                  onMouseEnter={() => handleMouseEnter(section.id)}
+                  onMouseLeave={handleMouseLeave}
+                >
+                  <button
+                    className={`flex items-center gap-1 nav-link ${
+                      openDropdown === section.id ? 'active' : ''
+                    }`}
+                    onClick={() =>
+                      setOpenDropdown(openDropdown === section.id ? null : section.id)
+                    }
+                  >
+                    {section.title}
+                    <ChevronDown
+                      className={`w-3 h-3 transition-transform duration-300 ${
+                        openDropdown === section.id ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </button>
+
+                  {openDropdown === section.id && (
+                    <div className="mega-menu-dropdown">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {section.items.map((item) => (
+                          <Link
+                            key={item.slug}
+                            href={`/${locale}/shop?${section.param}=${item.slug}`}
+                            className="block px-3 py-2 text-sm text-brand-text-secondary hover:text-brand-primary hover:bg-brand-pale-rose rounded-lg transition-all"
+                            onClick={() => setOpenDropdown(null)}
+                          >
+                            {section.getLabel(item)}
+                          </Link>
+                        ))}
+                      </div>
+                      <div className="mt-4 pt-4 border-t border-brand-secondary/10">
+                        <Link
+                          href={`/${locale}/shop`}
+                          className="text-sm font-medium text-brand-primary hover:underline flex items-center gap-1"
+                        >
+                          {isPersian ? 'مشاهده همه محصولات' : 'View All Products'} →
+                        </Link>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {navLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={`/${locale}${link.href}`}
+                  className={`nav-link ${isActive(link.href) ? 'active' : ''}`}
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </nav>
+
+            {/* Desktop Actions */}
+            <div className="hidden lg:flex items-center gap-1">
               <button
-                className={`flex items-center gap-1 text-sm font-medium transition ${
-                  openDropdown === 'categories'
-                    ? 'text-brand-primary'
-                    : 'text-brand-text-secondary hover:text-brand-primary'
-                }`}
-                onClick={() => setOpenDropdown(openDropdown === 'categories' ? null : 'categories')}
+                onClick={() => setIsSearchOpen(true)}
+                className="header-action-btn"
+                aria-label={isPersian ? 'جستجو' : 'Search'}
               >
-                {isPersian ? 'دسته‌بندی‌ها' : 'Categories'}
-                <ChevronDown className={`w-3 h-3 transition-transform duration-300 ${
-                  openDropdown === 'categories' ? 'rotate-180' : ''
-                }`} />
+                <Search className="w-5 h-5" />
               </button>
 
-              {/* Mega Menu Dropdown */}
-              {openDropdown === 'categories' && (
-                <div className="absolute top-full left-0 mt-2 w-[600px] bg-white rounded-2xl shadow-hover border border-brand-secondary/20 p-6 animate-fade-in">
-                  <div className="grid grid-cols-2 gap-8">
-                    {megaMenuItems.map((section) => (
-                      <div key={section.title}>
-                        <h4 className="text-xs font-semibold text-brand-text-secondary uppercase tracking-wider mb-3">
-                          {section.title}
-                        </h4>
-                        <ul className="space-y-2 max-h-64 overflow-y-auto pr-2">
-                          {section.items.map((item) => (
-                            <li key={item.slug}>
-                              <Link
-                                href={`/${locale}/shop?${section.param}=${item.slug}`}
-                                className="text-sm text-brand-text-secondary hover:text-brand-primary transition block py-0.5"
-                                onClick={() => setOpenDropdown(null)}
-                              >
-                                {section.getLabel(item)}
-                              </Link>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-6 pt-4 border-t border-brand-secondary/10">
-                    <Link
-                      href={`/${locale}/shop`}
-                      className="text-sm text-brand-primary hover:underline flex items-center gap-1"
-                    >
-                      {isPersian ? 'مشاهده همه محصولات' : 'View All Products'} →
-                    </Link>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {navLinks.map((link) => (
               <Link
-                key={link.href}
-                href={`/${locale}${link.href}`}
-                className={`text-sm font-medium transition ${
-                  isActive(link.href)
-                    ? 'text-brand-primary'
-                    : 'text-brand-text-secondary hover:text-brand-primary'
-                }`}
-              >
-                {link.label}
-              </Link>
-            ))}
-          </nav>
-
-          {/* Desktop Actions */}
-          <div className="hidden lg:flex items-center gap-1">
-            {/* Search */}
-            <button
-              onClick={() => setIsSearchOpen(true)}
-              className="p-2 text-brand-text-secondary hover:text-brand-primary transition rounded-full hover:bg-brand-pale-rose"
-              aria-label="Search"
-            >
-              <Search className="w-5 h-5" />
-            </button>
-
-            {/* Wishlist */}
-            {session && (
-              <Link
-                href={`/${locale}/wishlist`}
-                className="p-2 text-brand-text-secondary hover:text-brand-primary transition rounded-full hover:bg-brand-pale-rose"
+                href={session ? `/${locale}/wishlist` : `/${locale}/login`}
+                className="header-action-btn"
+                aria-label={isPersian ? 'علاقه‌مندی‌ها' : 'Wishlist'}
               >
                 <Heart className="w-5 h-5" />
               </Link>
-            )}
 
-            {/* Account */}
-            <Link
-              href={session ? `/${locale}/account` : `/${locale}/login`}
-              className="p-2 text-brand-text-secondary hover:text-brand-primary transition rounded-full hover:bg-brand-pale-rose"
+              <Link
+                href={session ? `/${locale}/account` : `/${locale}/login`}
+                className="header-action-btn"
+                aria-label={isPersian ? 'حساب کاربری' : 'Account'}
+              >
+                {session ? <User className="w-5 h-5" /> : <LogIn className="w-5 h-5" />}
+              </Link>
+
+              {/* Cart Button - Opens Drawer */}
+              <button
+                onClick={() => setIsCartOpen(true)}
+                className="header-action-btn"
+                aria-label={isPersian ? 'سبد خرید' : 'Cart'}
+              >
+                <ShoppingBag className="w-5 h-5" />
+                {totalItems > 0 && (
+                  <span className="badge">{totalItems > 99 ? '99+' : totalItems}</span>
+                )}
+              </button>
+
+              <Link
+                href={`/${locale === 'fa' ? 'en' : 'fa'}${pathname?.replace(/^\/[a-z]{2}/, '') || ''}`}
+                className="lang-switcher"
+              >
+                <span className={locale === 'en' ? 'active' : ''}>EN</span>
+                <span className="text-xs opacity-30">|</span>
+                <span className={locale === 'fa' ? 'active' : ''}>FA</span>
+              </Link>
+            </div>
+
+            {/* Mobile Menu Button */}
+            <button
+              onClick={() => setIsMenuOpen(true)}
+              className="lg:hidden p-2 text-brand-text-secondary hover:text-brand-primary transition rounded-lg hover:bg-brand-pale-rose"
+              aria-label={isPersian ? 'باز کردن منو' : 'Open menu'}
             >
-              <User className="w-5 h-5" />
-            </Link>
-
-            {/* Cart */}
-            <CartIcon locale={locale} />
-
-            {/* Language Switcher */}
-            <Link
-              href={`/${locale === 'fa' ? 'en' : 'fa'}${pathname?.replace(/^\/[a-z]{2}/, '') || ''}`}
-              className="text-xs text-brand-text-secondary hover:text-brand-primary transition px-3 py-1 rounded-full hover:bg-brand-pale-rose font-medium"
-            >
-              {locale === 'fa' ? 'EN' : 'FA'}
-            </Link>
+              <Menu className="w-6 h-6" />
+            </button>
           </div>
+        </div>
+      </header>
 
-          {/* Mobile Menu Button */}
-          <button
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="lg:hidden p-2 text-brand-text-secondary hover:text-brand-primary transition rounded-lg hover:bg-brand-pale-rose"
-            aria-label="Toggle menu"
+      {/* Mobile Navigation Overlay */}
+      <div
+        className={`mobile-nav-overlay ${isMenuOpen ? 'open' : ''}`}
+        onClick={() => setIsMenuOpen(false)}
+      />
+
+      {/* Mobile Navigation Drawer */}
+      <div className={`mobile-nav-drawer ${isMenuOpen ? 'open' : ''}`}>
+        {/* Close Button */}
+        <button
+          onClick={() => setIsMenuOpen(false)}
+          className="absolute top-4 left-4 p-2 text-brand-text-secondary hover:text-brand-primary transition rounded-lg hover:bg-brand-pale-rose z-10"
+          aria-label={isPersian ? 'بستن منو' : 'Close menu'}
+        >
+          <X className="w-6 h-6" />
+        </button>
+
+        {/* Mobile Logo - Centered */}
+<div className="flex justify-center mb-3 pt-4">
+  <Link
+    href={`/${locale}`}
+    onClick={() => setIsMenuOpen(false)}
+  >
+    <img
+      src="/logo.png"
+      alt="AlluraCare"
+      className="h-8 md:h-10 w-auto object-contain"
+    />
+  </Link>
+</div>
+
+        {/* Language Switcher - Top Right */}
+        <div className="flex items-center justify-end mb-3">
+          <Link
+            href={`/${locale === 'fa' ? 'en' : 'fa'}${pathname?.replace(/^\/[a-z]{2}/, '') || ''}`}
+            className="lang-switcher text-sm flex items-center gap-1 px-3 py-1.5"
+            onClick={() => setIsMenuOpen(false)}
           >
-            {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            <Globe className="w-3.5 h-3.5" />
+            <span className={locale === 'en' ? 'active' : ''}>EN</span>
+            <span className="text-xs opacity-30">|</span>
+            <span className={locale === 'fa' ? 'active' : ''}>FA</span>
+          </Link>
+        </div>
+
+        {/* Mobile Action Icons - Top Row with Animations */}
+        <div className="grid grid-cols-4 gap-1 mb-4 p-2 bg-brand-pale-rose/20 rounded-xl">
+          <button
+            onClick={() => {
+              setIsMenuOpen(false);
+              setIsSearchOpen(true);
+            }}
+            className="mobile-icon-btn group"
+            aria-label={isPersian ? 'جستجو' : 'Search'}
+          >
+            <div className="relative">
+              <Search className="w-5 h-5 transition-transform duration-300 group-hover:scale-110" />
+            </div>
+            <span className="text-[10px] font-medium">{isPersian ? 'جستجو' : 'Search'}</span>
+          </button>
+
+          <Link
+            href={session ? `/${locale}/wishlist` : `/${locale}/login`}
+            className="mobile-icon-btn group"
+            onClick={() => setIsMenuOpen(false)}
+            aria-label={isPersian ? 'علاقه‌مندی‌ها' : 'Wishlist'}
+          >
+            <div className="relative">
+              <Heart className="w-5 h-5 transition-transform duration-300 group-hover:scale-110" />
+            </div>
+            <span className="text-[10px] font-medium">{isPersian ? 'علاقه‌مندی‌ها' : 'Wishlist'}</span>
+          </Link>
+
+          <Link
+            href={session ? `/${locale}/account` : `/${locale}/login`}
+            className="mobile-icon-btn group"
+            onClick={() => setIsMenuOpen(false)}
+            aria-label={isPersian ? 'حساب کاربری' : 'Account'}
+          >
+            <div className="relative">
+              {session ? (
+                <User className="w-5 h-5 transition-transform duration-300 group-hover:scale-110" />
+              ) : (
+                <LogIn className="w-5 h-5 transition-transform duration-300 group-hover:scale-110" />
+              )}
+            </div>
+            <span className="text-[10px] font-medium">
+              {session ? (isPersian ? 'حساب' : 'Account') : isPersian ? 'ورود' : 'Login'}
+            </span>
+          </Link>
+
+          {/* Mobile Cart Button */}
+          <button
+            onClick={() => {
+              setIsMenuOpen(false);
+              setIsCartOpen(true);
+            }}
+            className="mobile-icon-btn group"
+            aria-label={isPersian ? 'سبد خرید' : 'Cart'}
+          >
+            <div className="relative">
+              <ShoppingBag className="w-5 h-5 transition-transform duration-300 group-hover:scale-110" />
+              {totalItems > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-brand-primary text-white text-[10px] font-bold rounded-full flex items-center justify-center border border-white cart-badge">
+                  {totalItems > 99 ? '99+' : totalItems}
+                </span>
+              )}
+            </div>
+            <span className="text-[10px] font-medium">{isPersian ? 'سبد خرید' : 'Cart'}</span>
           </button>
         </div>
-      </div>
 
-      {/* Mobile Menu */}
-      {isMenuOpen && (
-        <div className="lg:hidden bg-white border-t border-brand-secondary/20 py-4 px-4 space-y-1 animate-slide-in max-h-[80vh] overflow-y-auto">
-          {/* Categories with submenu */}
-          <div className="space-y-1">
+        {/* Mobile Navigation Items - With padding for footer */}
+        <nav className="mobile-nav-items">
+          {/* Categories */}
+          <div>
             <button
-              className="flex items-center justify-between w-full py-2 text-sm font-medium text-brand-text hover:text-brand-primary transition"
-              onClick={() => setOpenDropdown(openDropdown === 'mobile-categories' ? null : 'mobile-categories')}
+              className="mobile-nav-item w-full text-left flex items-center justify-between"
+              onClick={() =>
+                setOpenDropdown(openDropdown === 'mobile-categories' ? null : 'mobile-categories')
+              }
             >
-              {isPersian ? 'دسته‌بندی‌ها' : 'Categories'}
-              <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${
-                openDropdown === 'mobile-categories' ? 'rotate-180' : ''
-              }`} />
+              <span>{isPersian ? 'دسته‌بندی‌ها' : 'Categories'}</span>
+              <ChevronDown
+                className={`w-4 h-4 transition-transform duration-300 ${
+                  openDropdown === 'mobile-categories' ? 'rotate-180' : ''
+                }`}
+              />
             </button>
             {openDropdown === 'mobile-categories' && (
-              <div className="pl-4 space-y-2 pb-2 animate-fade-in">
+              <div className="mobile-sub-nav space-y-1">
                 {megaMenuItems.map((section) => (
-                  <div key={section.title}>
-                    <h4 className="text-xs font-semibold text-brand-text-secondary uppercase tracking-wider mt-2 mb-1">
+                  <div key={section.id}>
+                    <div className="text-xs font-semibold text-brand-text-secondary uppercase tracking-wider mt-3 mb-1">
                       {section.title}
-                    </h4>
+                    </div>
                     {section.items.map((item) => (
                       <Link
                         key={item.slug}
                         href={`/${locale}/shop?${section.param}=${item.slug}`}
-                        className="block py-1 text-sm text-brand-text-secondary hover:text-brand-primary transition"
+                        className="mobile-nav-item"
                         onClick={() => {
                           setIsMenuOpen(false);
                           setOpenDropdown(null);
@@ -309,7 +458,7 @@ export default function Header({ locale }: HeaderProps) {
                 ))}
                 <Link
                   href={`/${locale}/shop`}
-                  className="block py-1 text-sm text-brand-primary font-medium"
+                  className="block mt-3 text-sm font-medium text-brand-primary"
                   onClick={() => {
                     setIsMenuOpen(false);
                     setOpenDropdown(null);
@@ -325,84 +474,106 @@ export default function Header({ locale }: HeaderProps) {
             <Link
               key={link.href}
               href={`/${locale}${link.href}`}
-              className={`block py-2 text-sm font-medium transition ${
-                isActive(link.href)
-                  ? 'text-brand-primary'
-                  : 'text-brand-text-secondary hover:text-brand-primary'
-              }`}
+              className={`mobile-nav-item ${isActive(link.href) ? 'text-brand-primary' : ''}`}
               onClick={() => setIsMenuOpen(false)}
             >
               {link.label}
             </Link>
           ))}
+        </nav>
 
-          <div className="pt-4 mt-4 border-t border-brand-secondary/20 flex flex-wrap items-center gap-4">
-            <button
-              onClick={() => setIsSearchOpen(true)}
-              className="text-brand-text-secondary hover:text-brand-primary transition"
-            >
-              <Search className="w-5 h-5" />
-            </button>
-            {session && (
-              <Link
-                href={`/${locale}/wishlist`}
-                className="text-brand-text-secondary hover:text-brand-primary transition"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                <Heart className="w-5 h-5" />
-              </Link>
-            )}
+        {/* Mobile Footer - Fixed at bottom */}
+        <div className="mobile-footer">
+          <div className="flex items-center justify-between">
             <Link
               href={session ? `/${locale}/account` : `/${locale}/login`}
-              className="text-brand-text-secondary hover:text-brand-primary transition"
+              className="text-sm font-medium text-brand-text-secondary hover:text-brand-primary transition flex items-center gap-2"
               onClick={() => setIsMenuOpen(false)}
             >
-              <User className="w-5 h-5" />
+              {session ? (
+                <>
+                  <User className="w-4 h-4" />
+                  {isPersian ? 'حساب کاربری' : 'Account'}
+                </>
+              ) : (
+                <>
+                  <LogIn className="w-4 h-4" />
+                  {isPersian ? 'ورود / ثبت نام' : 'Login / Register'}
+                </>
+              )}
             </Link>
-            <CartIcon locale={locale} />
+
             <Link
               href={`/${locale === 'fa' ? 'en' : 'fa'}${pathname?.replace(/^\/[a-z]{2}/, '') || ''}`}
-              className="text-sm text-brand-text-secondary hover:text-brand-primary transition"
+              className="lang-switcher text-sm flex items-center gap-1"
               onClick={() => setIsMenuOpen(false)}
             >
-              {locale === 'fa' ? 'English' : 'فارسی'}
+              <span className={locale === 'en' ? 'active' : ''}>EN</span>
+              <span className="text-xs opacity-30">|</span>
+              <span className={locale === 'fa' ? 'active' : ''}>FA</span>
             </Link>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Search Overlay */}
-      {isSearchOpen && (
-        <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white/95 backdrop-blur-md shadow-hover">
-            <div className="container-custom py-6">
-              <div className="flex items-center gap-4">
+      <div
+        className={`search-overlay ${isSearchOpen ? 'open' : ''}`}
+        onClick={() => setIsSearchOpen(false)}
+      >
+        <div
+          className="search-overlay-content"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="container-custom max-w-2xl mx-auto">
+            <div className="flex items-center gap-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-brand-text-secondary" />
                 <input
                   type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder={isPersian ? 'جستجوی محصولات...' : 'Search products...'}
-                  className="flex-1 text-lg bg-transparent border-none focus:outline-none text-brand-text placeholder-brand-text-secondary"
+                  className="w-full pl-12 pr-4 py-3 text-lg bg-transparent border-b-2 border-brand-secondary/30 focus:border-brand-primary outline-none transition-colors text-brand-text placeholder-brand-text-secondary"
                   autoFocus
                 />
-                <button
-                  onClick={() => setIsSearchOpen(false)}
-                  className="p-2 text-brand-text-secondary hover:text-brand-primary transition"
-                >
-                  <X className="w-6 h-6" />
-                </button>
               </div>
-              <div className="mt-4 text-sm text-brand-text-secondary">
-                <p>{isPersian ? 'جستجوهای محبوب:' : 'Popular searches:'}</p>
-                <div className="flex flex-wrap gap-3 mt-2">
-                  <span className="px-3 py-1 bg-brand-pale-rose rounded-full text-brand-text text-sm">Serum</span>
-                  <span className="px-3 py-1 bg-brand-pale-rose rounded-full text-brand-text text-sm">Moisturizer</span>
-                  <span className="px-3 py-1 bg-brand-pale-rose rounded-full text-brand-text text-sm">Sunscreen</span>
-                  <span className="px-3 py-1 bg-brand-pale-rose rounded-full text-brand-text text-sm">Cleanser</span>
-                </div>
+              <button
+                onClick={() => setIsSearchOpen(false)}
+                className="p-2 text-brand-text-secondary hover:text-brand-primary transition rounded-lg hover:bg-brand-pale-rose"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="mt-6">
+              <p className="text-sm text-brand-text-secondary mb-3">
+                {isPersian ? 'جستجوهای محبوب:' : 'Popular searches:'}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {popularSearches.map((term) => (
+                  <button
+                    key={term}
+                    className="px-4 py-1.5 bg-brand-pale-rose/50 hover:bg-brand-pale-rose text-brand-text rounded-full text-sm transition-all hover:scale-105"
+                    onClick={() => setSearchQuery(term)}
+                  >
+                    {term}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
         </div>
-      )}
-    </header>
+      </div>
+
+      {/* ============================================ */}
+      {/* CART DRAWER - Added at the end of the JSX */}
+      {/* ============================================ */}
+      <CartDrawer
+        isOpen={isCartOpen}
+        onClose={() => setIsCartOpen(false)}
+        locale={locale}
+      />
+    </>
   );
 }

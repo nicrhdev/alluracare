@@ -5,7 +5,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCartStore } from '@/store/cartStore';
-import { ShoppingBag, Truck, CreditCard, CheckCircle } from 'lucide-react';
+import { ShoppingBag, Truck, CreditCard, CheckCircle, MapPin, Phone, Mail, User } from 'lucide-react';
 
 interface Address {
   id: string;
@@ -51,8 +51,10 @@ export default function CheckoutClient({ user, locale, t }: CheckoutClientProps)
   const { items, getTotalPrice, clearCart } = useCartStore();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentStep, setCurrentStep] = useState(1);
 
-  // Form state
+  const isPersian = locale === 'fa';
+
   const [formData, setFormData] = useState({
     fullName: user.name || '',
     email: user.email,
@@ -65,7 +67,6 @@ export default function CheckoutClient({ user, locale, t }: CheckoutClientProps)
     saveAddress: false,
   });
 
-  // Redirect if cart is empty
   useEffect(() => {
     if (items.length === 0) {
       router.push(`/${locale}/cart`);
@@ -73,6 +74,22 @@ export default function CheckoutClient({ user, locale, t }: CheckoutClientProps)
   }, [items, router, locale]);
 
   const totalPrice = getTotalPrice();
+
+  const formatPrice = (price: number) => {
+  if (isPersian) {
+    const tomanRate = 185000; 
+    const tomanPrice = price * tomanRate;
+    return new Intl.NumberFormat('fa-IR', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(tomanPrice) + ' تومان';
+  }
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+  }).format(price);
+};
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -87,17 +104,15 @@ export default function CheckoutClient({ user, locale, t }: CheckoutClientProps)
     setLoading(true);
     setError(null);
 
-    // Validate form
     if (!formData.fullName || !formData.email || !formData.phone ||
       !formData.street || !formData.city || !formData.state ||
       !formData.zipCode || !formData.country) {
-      setError('Please fill in all required fields');
+      setError(isPersian ? 'لطفاً تمام فیلدها را پر کنید' : 'Please fill in all required fields');
       setLoading(false);
       return;
     }
 
     try {
-      // Create order in database
       const orderResponse = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -119,36 +134,13 @@ export default function CheckoutClient({ user, locale, t }: CheckoutClientProps)
       });
 
       if (!orderResponse.ok) {
-        let errorMessage = 'Failed to create order';
-        try {
-          const errorData = await orderResponse.json();
-          errorMessage = errorData.error || errorMessage;
-        } catch (parseError) {
-          console.error('Failed to parse error response:', parseError);
-          errorMessage = `Server error: ${orderResponse.status}`;
-        }
-        throw new Error(errorMessage);
+        const errorData = await orderResponse.json();
+        throw new Error(errorData.error || 'Failed to create order');
       }
 
-      // Parse the response
-      let data;
-      try {
-        data = await orderResponse.json();
-      } catch (parseError) {
-        console.error('Failed to parse success response:', parseError);
-        throw new Error('Server returned invalid response');
-      }
-
-      if (!data.orderId) {
-        throw new Error('No order ID returned');
-      }
-
-      // Clear cart
+      const data = await orderResponse.json();
       clearCart();
-
-      // Use window.location for full page navigation to success page
-      const successUrl = `/${locale}/checkout/success?orderId=${data.orderId}`;
-      window.location.href = successUrl;
+      window.location.href = `/${locale}/checkout/success?orderId=${data.orderId}`;
       
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -156,76 +148,21 @@ export default function CheckoutClient({ user, locale, t }: CheckoutClientProps)
     }
   };
 
-  // Format price
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat(locale === 'fa' ? 'fa-IR' : 'en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-    }).format(price);
-  };
-
-  // Country options
-  const countryOptions = locale === 'fa'
+  const countryOptions = isPersian
     ? [
       { code: 'IR', name: 'ایران' },
-      { code: 'US', name: 'ایالات متحده' },
-      { code: 'CA', name: 'کانادا' },
-      { code: 'UK', name: 'بریتانیا' },
-      { code: 'DE', name: 'آلمان' },
-      { code: 'FR', name: 'فرانسه' },
-      { code: 'JP', name: 'ژاپن' },
-      { code: 'AU', name: 'استرالیا' },
-      { code: 'AE', name: 'امارات' },
-      { code: 'TR', name: 'ترکیه' },
     ]
     : [
       { code: 'IR', name: 'Iran' },
-      { code: 'US', name: 'United States' },
-      { code: 'CA', name: 'Canada' },
-      { code: 'UK', name: 'United Kingdom' },
-      { code: 'DE', name: 'Germany' },
-      { code: 'FR', name: 'France' },
-      { code: 'JP', name: 'Japan' },
-      { code: 'AU', name: 'Australia' },
-      { code: 'AE', name: 'UAE' },
-      { code: 'TR', name: 'Turkey' },
     ];
-
-  const getPlaceholder = (field: string) => {
-    if (locale === 'fa') {
-      const placeholders: Record<string, string> = {
-        fullName: 'نام کامل',
-        email: 'ایمیل',
-        phone: '۰۹XXXXXXXXX',
-        street: 'آدرس کامل',
-        city: 'شهر',
-        state: 'استان',
-        zipCode: 'کد پستی',
-        country: 'کشور',
-      };
-      return placeholders[field] || '';
-    }
-    const placeholders: Record<string, string> = {
-      fullName: 'Full Name',
-      email: 'Email',
-      phone: '09XXXXXXXXX',
-      street: 'Full Address',
-      city: 'City',
-      state: 'State/Province',
-      zipCode: 'Postal Code',
-      country: 'Country',
-    };
-    return placeholders[field] || '';
-  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-      {/* Shipping Form */}
+      {/* Form */}
       <div className="lg:col-span-2">
-        <div className="bg-white rounded-xl shadow-soft border border-brand-secondary/20 p-6">
-          <h2 className="text-xl font-semibold text-brand-text mb-4 flex items-center gap-2">
-            <Truck className="w-5 h-5 text-brand-primary" />
+        <div className="bg-white rounded-xl border border-brand-secondary/20 p-6">
+          <h2 className="text-xl font-semibold text-[#2D2D2D] mb-4 flex items-center gap-2">
+            <Truck className="w-5 h-5 text-[#874A58]" />
             {t.shippingInfo}
           </h2>
 
@@ -236,48 +173,73 @@ export default function CheckoutClient({ user, locale, t }: CheckoutClientProps)
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Full Name */}
+            {/* Name */}
             <div>
-              <label className="block text-sm font-medium text-brand-text mb-1">
+              <label className="block text-sm font-medium text-[#2D2D2D] mb-1">
                 {t.fullName} *
               </label>
-              <input
-                type="text"
-                name="fullName"
-                value={formData.fullName}
-                onChange={handleChange}
-                placeholder={getPlaceholder('fullName')}
-                className="input-pastel"
-                required
-              />
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8A8A8A]" />
+                <input
+                  type="text"
+                  name="fullName"
+                  value={formData.fullName}
+                  onChange={handleChange}
+                  placeholder={isPersian ? 'نام کامل' : 'Full Name'}
+                  className="w-full pl-10 pr-4 py-2.5 border border-brand-secondary/30 rounded-lg focus:ring-2 focus:ring-[#874A58] focus:border-transparent outline-none transition text-[#2D2D2D] placeholder:text-[#8A8A8A]"
+                  required
+                />
+              </div>
             </div>
 
             {/* Email */}
             <div>
-              <label className="block text-sm font-medium text-brand-text mb-1">
+              <label className="block text-sm font-medium text-[#2D2D2D] mb-1">
                 {t.email} *
               </label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                placeholder={getPlaceholder('email')}
-                className="input-pastel"
-                required
-              />
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8A8A8A]" />
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  placeholder={isPersian ? 'ایمیل' : 'Email'}
+                  className="w-full pl-10 pr-4 py-2.5 border border-brand-secondary/30 rounded-lg focus:ring-2 focus:ring-[#874A58] focus:border-transparent outline-none transition text-[#2D2D2D] placeholder:text-[#8A8A8A]"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Phone */}
+            <div>
+              <label className="block text-sm font-medium text-[#2D2D2D] mb-1">
+                {t.phone} *
+              </label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8A8A8A]" />
+                <input
+                  type="tel"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  placeholder={isPersian ? '۰۹XXXXXXXXX' : '09XXXXXXXXX'}
+                  className="w-full pl-10 pr-4 py-2.5 border border-brand-secondary/30 rounded-lg focus:ring-2 focus:ring-[#874A58] focus:border-transparent outline-none transition text-[#2D2D2D] placeholder:text-[#8A8A8A]"
+                  required
+                />
+              </div>
             </div>
 
             {/* Country */}
             <div>
-              <label className="block text-sm font-medium text-brand-text mb-1">
+              <label className="block text-sm font-medium text-[#2D2D2D] mb-1">
                 {t.country} *
               </label>
               <select
                 name="country"
                 value={formData.country}
                 onChange={handleChange}
-                className="select-pastel"
+                className="w-full px-4 py-2.5 border border-brand-secondary/30 rounded-lg focus:ring-2 focus:ring-[#874A58] focus:border-transparent outline-none transition text-[#2D2D2D] bg-white"
                 required
               >
                 {countryOptions.map((country) => (
@@ -288,9 +250,9 @@ export default function CheckoutClient({ user, locale, t }: CheckoutClientProps)
               </select>
             </div>
 
-            {/* Province/State */}
+            {/* State */}
             <div>
-              <label className="block text-sm font-medium text-brand-text mb-1">
+              <label className="block text-sm font-medium text-[#2D2D2D] mb-1">
                 {t.state} *
               </label>
               <input
@@ -298,15 +260,15 @@ export default function CheckoutClient({ user, locale, t }: CheckoutClientProps)
                 name="state"
                 value={formData.state}
                 onChange={handleChange}
-                placeholder={getPlaceholder('state')}
-                className="input-pastel"
+                placeholder={isPersian ? 'استان' : 'State/Province'}
+                className="w-full px-4 py-2.5 border border-brand-secondary/30 rounded-lg focus:ring-2 focus:ring-[#874A58] focus:border-transparent outline-none transition text-[#2D2D2D] placeholder:text-[#8A8A8A]"
                 required
               />
             </div>
 
             {/* City */}
             <div>
-              <label className="block text-sm font-medium text-brand-text mb-1">
+              <label className="block text-sm font-medium text-[#2D2D2D] mb-1">
                 {t.city} *
               </label>
               <input
@@ -314,31 +276,34 @@ export default function CheckoutClient({ user, locale, t }: CheckoutClientProps)
                 name="city"
                 value={formData.city}
                 onChange={handleChange}
-                placeholder={getPlaceholder('city')}
-                className="input-pastel"
+                placeholder={isPersian ? 'شهر' : 'City'}
+                className="w-full px-4 py-2.5 border border-brand-secondary/30 rounded-lg focus:ring-2 focus:ring-[#874A58] focus:border-transparent outline-none transition text-[#2D2D2D] placeholder:text-[#8A8A8A]"
                 required
               />
             </div>
 
             {/* Address */}
             <div>
-              <label className="block text-sm font-medium text-brand-text mb-1">
+              <label className="block text-sm font-medium text-[#2D2D2D] mb-1">
                 {t.address} *
               </label>
-              <input
-                type="text"
-                name="street"
-                value={formData.street}
-                onChange={handleChange}
-                placeholder={getPlaceholder('street')}
-                className="input-pastel"
-                required
-              />
+              <div className="relative">
+                <MapPin className="absolute left-3 top-3 w-4 h-4 text-[#8A8A8A]" />
+                <input
+                  type="text"
+                  name="street"
+                  value={formData.street}
+                  onChange={handleChange}
+                  placeholder={isPersian ? 'آدرس کامل' : 'Full Address'}
+                  className="w-full pl-10 pr-4 py-2.5 border border-brand-secondary/30 rounded-lg focus:ring-2 focus:ring-[#874A58] focus:border-transparent outline-none transition text-[#2D2D2D] placeholder:text-[#8A8A8A]"
+                  required
+                />
+              </div>
             </div>
 
             {/* Zip Code */}
             <div>
-              <label className="block text-sm font-medium text-brand-text mb-1">
+              <label className="block text-sm font-medium text-[#2D2D2D] mb-1">
                 {t.zipCode} *
               </label>
               <input
@@ -346,24 +311,8 @@ export default function CheckoutClient({ user, locale, t }: CheckoutClientProps)
                 name="zipCode"
                 value={formData.zipCode}
                 onChange={handleChange}
-                placeholder={getPlaceholder('zipCode')}
-                className="input-pastel"
-                required
-              />
-            </div>
-
-            {/* Phone */}
-            <div>
-              <label className="block text-sm font-medium text-brand-text mb-1">
-                {t.phone} *
-              </label>
-              <input
-                type="tel"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                placeholder={getPlaceholder('phone')}
-                className="input-pastel"
+                placeholder={isPersian ? 'کد پستی' : 'Postal Code'}
+                className="w-full px-4 py-2.5 border border-brand-secondary/30 rounded-lg focus:ring-2 focus:ring-[#874A58] focus:border-transparent outline-none transition text-[#2D2D2D] placeholder:text-[#8A8A8A]"
                 required
               />
             </div>
@@ -375,23 +324,22 @@ export default function CheckoutClient({ user, locale, t }: CheckoutClientProps)
                 name="saveAddress"
                 checked={formData.saveAddress}
                 onChange={handleChange}
-                className="w-4 h-4 rounded border-brand-secondary/50 text-brand-primary focus:ring-brand-primary"
+                className="w-4 h-4 rounded border-brand-secondary/50 text-[#874A58] focus:ring-[#874A58]"
               />
-              <label className="text-sm text-brand-text-secondary">
+              <label className="text-sm text-[#8A8A8A]">
                 {t.saveAddress}
               </label>
             </div>
 
-            {/* Submit button moved inside form */}
             <button
               type="submit"
               disabled={loading || items.length === 0}
-              className="w-full mt-4 btn-primary py-3"
+              className="w-full mt-4 btn-primary py-3 text-base"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
-                  <span className="animate-spin">⏳</span>
-                  {locale === 'fa' ? 'در حال پردازش...' : 'Processing...'}
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  {isPersian ? 'در حال پردازش...' : 'Processing...'}
                 </span>
               ) : (
                 <span className="flex items-center justify-center gap-2">
@@ -406,47 +354,44 @@ export default function CheckoutClient({ user, locale, t }: CheckoutClientProps)
 
       {/* Order Summary */}
       <div className="lg:col-span-1">
-        <div className="bg-white rounded-xl shadow-soft border border-brand-secondary/20 p-6 sticky top-24">
-          <h2 className="text-xl font-semibold text-brand-text mb-4 flex items-center gap-2">
-            <ShoppingBag className="w-5 h-5 text-brand-primary" />
+        <div className="bg-white rounded-xl border border-brand-secondary/20 p-6 sticky top-24">
+          <h2 className="text-xl font-semibold text-[#2D2D2D] mb-4 flex items-center gap-2">
+            <ShoppingBag className="w-5 h-5 text-[#874A58]" />
             {t.orderSummary}
           </h2>
 
-          {/* Items */}
           <div className="space-y-3 max-h-60 overflow-y-auto mb-4">
-            {items.map((item) => (
+            {items.map((item: any) => (
               <div key={item.id} className="flex justify-between text-sm border-b border-brand-secondary/10 pb-2">
-                <span className="text-brand-text">
-                  {locale === 'fa' ? item.nameFa : item.name} × {item.quantity}
+                <span className="text-[#2D2D2D]">
+                  {isPersian ? item.nameFa : item.name} × {item.quantity}
                 </span>
-                <span className="font-medium text-brand-text">
+                <span className="font-medium text-[#2D2D2D]">
                   {formatPrice(item.price * item.quantity)}
                 </span>
               </div>
             ))}
           </div>
 
-          {/* Totals */}
           <div className="border-t border-brand-secondary/20 pt-4 space-y-2">
             <div className="flex justify-between">
-              <span className="text-brand-text-secondary">Subtotal</span>
-              <span className="text-brand-text">{formatPrice(totalPrice)}</span>
+              <span className="text-[#8A8A8A]">{isPersian ? 'جمع جزئی' : 'Subtotal'}</span>
+              <span className="text-[#2D2D2D]">{formatPrice(totalPrice)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-brand-text-secondary">Shipping</span>
-              <span className="text-brand-text">$0.00</span>
+              <span className="text-[#8A8A8A]">{isPersian ? 'ارسال' : 'Shipping'}</span>
+              <span className="text-[#2D2D2D]">{isPersian ? 'رایگان' : 'Free'}</span>
             </div>
             <div className="flex justify-between text-lg font-bold pt-2 border-t border-brand-secondary/20">
-              <span className="text-brand-text">Total</span>
-              <span className="text-brand-primary">{formatPrice(totalPrice)}</span>
+              <span className="text-[#2D2D2D]">{isPersian ? 'جمع کل' : 'Total'}</span>
+              <span className="text-[#874A58]">{formatPrice(totalPrice)}</span>
             </div>
           </div>
 
-          {/* Payment Method Badge */}
-          <div className="mt-4 p-3 bg-brand-pale-rose/30 rounded-lg flex items-center gap-2 text-sm">
-            <CreditCard className="w-4 h-4 text-brand-primary" />
-            <span className="text-brand-text-secondary">
-              {locale === 'fa' ? 'پرداخت امن با کارت اعتباری' : 'Secure payment with credit card'}
+          <div className="mt-4 p-3 bg-[#EDEDFA]/30 rounded-lg flex items-center gap-2 text-sm">
+            <CreditCard className="w-4 h-4 text-[#874A58]" />
+            <span className="text-[#8A8A8A]">
+              {isPersian ? 'پرداخت امن با کارت اعتباری' : 'Secure payment with credit card'}
             </span>
           </div>
         </div>

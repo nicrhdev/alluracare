@@ -1,49 +1,61 @@
 // src/lib/utils/formatPrice.ts
 
 interface FormatPriceOptions {
-  locale: string;
-  currency?: 'USD' | 'IRR';
-  price: number;
+  locale?: string;
+  currency?: string;
+  minimumFractionDigits?: number;
+  maximumFractionDigits?: number;
 }
 
-export function formatPrice({ locale, currency = 'USD', price }: FormatPriceOptions): string {
-  // If locale is Persian (fa), use IRR/Toman
-  if (locale === 'fa') {
-    // Convert USD to IRR (using a fixed rate for demo)
-    // You can change this rate as needed
-    const exchangeRate = 58000; // 1 USD = 58,000 IRR
-    const rialPrice = price * exchangeRate;
-    const tomanPrice = rialPrice / 10; // 1 Toman = 10 Rials
+// Real exchange rate: 1 USD = 185,000 Toman
+const EXCHANGE_RATE = 185000;
+
+export const formatPrice = (
+  price: number,
+  options: FormatPriceOptions = {}
+): string => {
+  const {
+    locale = 'en-US',
+    currency = 'USD',
+    minimumFractionDigits = 0,
+    maximumFractionDigits = 0,
+  } = options;
+
+  // For Persian locale, convert USD to Toman
+  if (locale === 'fa-IR') {
+    const tomanPrice = price * EXCHANGE_RATE;
     
-    return new Intl.NumberFormat('fa-IR', {
-      style: 'currency',
-      currency: 'IRR',
+    const formattedNumber = new Intl.NumberFormat('fa-IR', {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(tomanPrice * 10).replace('IRR', 'تومان');
+    }).format(tomanPrice);
+    
+    return `${formattedNumber} تومان`;
   }
 
-  // For English locale, use USD
-  return new Intl.NumberFormat('en-US', {
+  // Default: USD formatting
+  return new Intl.NumberFormat(locale, {
     style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
+    currency: currency,
+    minimumFractionDigits,
+    maximumFractionDigits,
   }).format(price);
-}
+};
 
-// Helper function for USD to Toman conversion
-export function convertToToman(usdPrice: number): number {
-  const exchangeRate = 58000;
-  const rialPrice = usdPrice * exchangeRate;
-  return rialPrice / 10; // Toman
-}
+// Helper to convert USD to Toman
+export const usdToToman = (usdPrice: number): number => {
+  return usdPrice * EXCHANGE_RATE;
+};
 
-// Helper function to format Toman
-export function formatToman(price: number, locale: string = 'fa'): string {
+// Helper to format Toman
+export const formatToman = (price: number): string => {
   return new Intl.NumberFormat('fa-IR', {
-    style: 'currency',
-    currency: 'IRR',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(price * 10).replace('IRR', 'تومان');
-}
+  }).format(price) + ' تومان';
+};
+
+// Helper to convert Toman to USD (for reference)
+export const tomanToUsd = (tomanPrice: number): number => {
+  return tomanPrice / EXCHANGE_RATE;
+};

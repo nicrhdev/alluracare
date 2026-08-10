@@ -12,23 +12,19 @@ interface CartPageProps {
 export default async function CartPage({ params }: CartPageProps) {
   const { locale } = await params;
   const t = await getTranslations('cart');
-  const common = await getTranslations('common');
 
   return (
-    <main className="min-h-screen bg-brand-background py-12">
-      <div className="container-custom max-w-4xl">
+    <main className="min-h-screen py-12" style={{ background: 'linear-gradient(180deg, #FFFFFF 0%, #EDEDFA 30%, #C1EODF 70%, #FFFFFF 100%)' }}>
+      <div className="container-custom max-w-5xl">
         {/* Page Header */}
         <div className="mb-8 text-center">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <span className="text-2xl">🛒</span>
-            <span className="text-sm font-medium text-brand-primary bg-brand-pale-rose px-3 py-1 rounded-full">
-              {locale === 'fa' ? '✨ سبد خرید' : '✨ Shopping Cart'}
-            </span>
-          </div>
-          <h1 className="text-3xl md:text-4xl font-bold text-brand-text mb-2">
+          <span className="text-sm font-medium text-white bg-[#874A58] px-4 py-1.5 rounded-full inline-block mb-3">
+            {locale === 'fa' ? '🛒 سبد خرید' : '🛒 Shopping Cart'}
+          </span>
+          <h1 className="text-3xl md:text-4xl font-bold text-[#2D2D2D] mb-2">
             {t('title')}
           </h1>
-          <p className="text-brand-text-secondary max-w-md mx-auto">
+          <p className="text-[#8A8A8A] max-w-md mx-auto">
             {t('subtitle')}
           </p>
         </div>
@@ -42,12 +38,6 @@ export default async function CartPage({ params }: CartPageProps) {
             subtotal: t('subtotal'),
             total: t('total'),
             remove: t('remove'),
-            quantity: 'Quantity',
-            product: 'Product',
-            price: 'Price',
-          }}
-          common={{
-            currency: 'USD',
           }}
         />
       </div>

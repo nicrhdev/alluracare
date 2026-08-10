@@ -16,7 +16,6 @@ interface CheckoutPageProps {
 export default async function CheckoutPage({ params }: CheckoutPageProps) {
   const { locale } = await params;
 
-  // Check if user is logged in
   const session = await getServerSession(authOptions);
   if (!session || !session.user || !session.user.email) {
     redirect(`/${locale}/login?callbackUrl=/${locale}/checkout`);
@@ -24,7 +23,6 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
 
   const t = await getTranslations('checkout');
 
-  // Get user with addresses
   const user = await prisma.user.findUnique({
     where: { email: session.user.email },
     include: {
@@ -37,39 +35,36 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
   }
 
   return (
-    <main className="min-h-screen bg-brand-background py-12">
+    <main className="min-h-screen py-12" style={{ background: 'linear-gradient(180deg, #FFFFFF 0%, #EDEDFA 30%, #C1EODF 70%, #FFFFFF 100%)' }}>
       <div className="container-custom max-w-5xl">
         {/* Page Header */}
         <div className="mb-8 text-center">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <span className="text-2xl">📦</span>
-            <span className="text-sm font-medium text-brand-primary bg-brand-pale-rose px-3 py-1 rounded-full">
-              {locale === 'fa' ? '✨ تکمیل خرید' : '✨ Checkout'}
-            </span>
-          </div>
-          <h1 className="text-3xl md:text-4xl font-bold text-brand-text mb-2">
+          <span className="text-sm font-medium text-white bg-[#874A58] px-4 py-1.5 rounded-full inline-block mb-3">
+            {locale === 'fa' ? '📦 تکمیل خرید' : '📦 Checkout'}
+          </span>
+          <h1 className="text-3xl md:text-4xl font-bold text-[#2D2D2D] mb-2">
             {t('title')}
           </h1>
-          <p className="text-brand-text-secondary max-w-md mx-auto">
+          <p className="text-[#8A8A8A] max-w-md mx-auto">
             {t('subtitle')}
           </p>
         </div>
 
-        {/* Checkout Steps Indicator */}
+        {/* Steps Indicator */}
         <div className="flex items-center justify-center gap-2 mb-8">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-brand-primary text-white flex items-center justify-center text-sm font-medium">1</div>
-            <span className="text-sm font-medium text-brand-text">{t('shippingInfo')}</span>
+            <div className="w-8 h-8 rounded-full bg-[#874A58] text-white flex items-center justify-center text-sm font-medium">1</div>
+            <span className="text-sm font-medium text-[#2D2D2D]">{t('shippingInfo')}</span>
           </div>
           <div className="w-12 h-0.5 bg-brand-secondary/50"></div>
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-brand-secondary/50 text-brand-text-secondary flex items-center justify-center text-sm font-medium">2</div>
-            <span className="text-sm text-brand-text-secondary">{t('payment')}</span>
+            <div className="w-8 h-8 rounded-full bg-brand-secondary/50 text-[#8A8A8A] flex items-center justify-center text-sm font-medium">2</div>
+            <span className="text-sm text-[#8A8A8A]">{t('payment')}</span>
           </div>
           <div className="w-12 h-0.5 bg-brand-secondary/50"></div>
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-brand-secondary/50 text-brand-text-secondary flex items-center justify-center text-sm font-medium">3</div>
-            <span className="text-sm text-brand-text-secondary">{t('confirm')}</span>
+            <div className="w-8 h-8 rounded-full bg-brand-secondary/50 text-[#8A8A8A] flex items-center justify-center text-sm font-medium">3</div>
+            <span className="text-sm text-[#8A8A8A]">{t('confirm')}</span>
           </div>
         </div>
 

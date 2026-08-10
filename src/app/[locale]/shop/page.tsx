@@ -1,155 +1,334 @@
 // src/app/[locale]/shop/page.tsx
 
-import { getTranslations } from 'next-intl/server';
 import { prisma } from '@/lib/prisma/client';
-import FilterBar from './components/FilterBar';
-import ProductCard from './components/ProductCard';
-import Link from 'next/link';
-import { Sparkles } from 'lucide-react';
+import ShopClient from './components/ShopClient';
 
 interface ShopPageProps {
   params: Promise<{
     locale: string;
   }>;
-  searchParams?: Promise<{
-    category?: string;
+  searchParams: Promise<{
+    page?: string;
+    sort?: string;
+    category?: string | string[];
+    concern?: string | string[];
+    skinType?: string | string[];
+    brand?: string | string[];
+    minPrice?: string;
+    maxPrice?: string;
+    inStock?: string;
     search?: string;
   }>;
 }
 
+const ITEMS_PER_PAGE = 12;
+
 export default async function ShopPage({ params, searchParams }: ShopPageProps) {
   const { locale } = await params;
   const search = await searchParams;
+  const isPersian = locale === 'fa';
 
-  const t = await getTranslations('shop');
+  // Get search params
+  const page = parseInt(search.page || '1');
+  const sort = search.sort || 'newest';
+  const categories = Array.isArray(search.category) ? search.category : search.category ? [search.category] : [];
+  const concerns = Array.isArray(search.concern) ? search.concern : search.concern ? [search.concern] : [];
+  const skinTypes = Array.isArray(search.skinType) ? search.skinType : search.skinType ? [search.skinType] : [];
+  const brands = Array.isArray(search.brand) ? search.brand : search.brand ? [search.brand] : [];
+  const brandNames = brands.length > 0 
+  ? brands.map((slug: string) => {
+      // Map slug to display name
+      const brandMap: Record<string, string> = {
+        'anua': 'Anua',
+        'beauty-of-joseon': 'Beauty of Joseon',
+        'skin-1004': 'SKIN1004',
+        'medicube': 'Medicube',
+        'axis-y': 'AXIS-Y',
+        'dr-althea': 'Dr.Althea',
+        'cosrx': 'COSRX',
+        'laneige': 'LANEIGE',
+        'tocobo': 'TOCOBO',
+        'purito': 'Purito',
+        'numbuzin': 'numbuzin',
+        'the-ordinary': 'The Ordinary',
+        'k-secret': 'K-SECRET',
+        'some-by-mi': 'SOME BY MI',
+        'la-roche-posay': 'La Roche-Posay',
+        'arencia': 'Arencia',
+      };
+      return brandMap[slug] || slug;
+    })
+  : [];
+  const minPrice = parseInt(search.minPrice || '0');
+  const maxPrice = parseInt(search.maxPrice || '10000');
+  const inStock = search.inStock === 'true';
+  const searchQuery = search.search || '';
 
-  // Fetch categories for the filter
-  const categories = await prisma.category.findMany({
-    where: { isActive: true },
-    orderBy: { order: 'asc' },
-  });
-
-  // Build the where clause for filtering
+  // Build filter conditions
   const where: any = {
     isActive: true,
     status: 'PUBLISHED',
   };
 
-  // Filter by category if provided
-  if (search?.category) {
-    const category = await prisma.category.findFirst({
-      where: { slug: search.category },
-    });
-    if (category) {
-      where.categoryId = category.id;
-    }
-  }
-
-  // Search by name or brand
-  if (search?.search) {
-    const searchTerm = search.search;
+  // Search query
+  if (searchQuery) {
     where.OR = [
-      { nameEn: { contains: searchTerm, mode: 'insensitive' } },
-      { nameFa: { contains: searchTerm, mode: 'insensitive' } },
-      { brand: { contains: searchTerm, mode: 'insensitive' } },
+      { nameEn: { contains: searchQuery, mode: 'insensitive' } },
+      { nameFa: { contains: searchQuery, mode: 'insensitive' } },
+      { descriptionEn: { contains: searchQuery, mode: 'insensitive' } },
+      { descriptionFa: { contains: searchQuery, mode: 'insensitive' } },
+      { brand: { contains: searchQuery, mode: 'insensitive' } },
     ];
   }
 
-  // Fetch products with their variants
+  // Category filter
+  if (categories.length > 0) {
+    where.category = {
+      slug: { in: categories },
+    };
+  }
+
+  // Concern filter
+  if (concerns.length > 0) {
+    where.concerns = {
+      some: {
+        concern: {
+          slug: { in: concerns },
+        },
+      },
+    };
+  }
+
+  // Skin Type filter
+  if (skinTypes.length > 0) {
+    where.skinTypes = {
+      some: {
+        skinType: {
+          slug: { in: skinTypes },
+        },
+      },
+    };
+  }
+
+  // Brand filter
+  if (brandNames.length > 0) {
+  where.brand = {
+    in: brandNames,
+    mode: 'insensitive',
+  };
+}
+
+  // Price filter
+  if (minPrice > 0 || maxPrice < 10000) {
+    where.variants = {
+      some: {
+        price: {
+          gte: minPrice || 0,
+          lte: maxPrice || 10000,
+        },
+      },
+    };
+  }
+
+  // In stock filter
+  if (inStock) {
+    where.variants = {
+      some: {
+        stock: { gt: 0 },
+      },
+    };
+  }
+
+  // Build sorting
+  let orderBy: any = {};
+  switch (sort) {
+    case 'newest':
+      orderBy = { createdAt: 'desc' };
+      break;
+    case 'bestselling':
+      orderBy = { createdAt: 'desc' };
+      break;
+    case 'price-asc':
+      orderBy = { variants: { _min: { price: 'asc' } } };
+      break;
+    case 'price-desc':
+      orderBy = { variants: { _min: { price: 'desc' } } };
+      break;
+    case 'rating':
+      orderBy = { reviews: { _avg: { rating: 'desc' } } };
+      break;
+    default:
+      orderBy = { createdAt: 'desc' };
+  }
+
+  // Get total count for pagination
+  const totalCount = await prisma.product.count({ where });
+
+  // Get products for current page
   const products = await prisma.product.findMany({
     where,
     include: {
       variants: true,
       category: true,
+      skinTypes: { select: { skinTypeId: true } },
+      concerns: { select: { concernId: true } },
     },
-    orderBy: { createdAt: 'desc' },
+    orderBy,
+    skip: (page - 1) * ITEMS_PER_PAGE,
+    take: ITEMS_PER_PAGE,
   });
 
-  // Format price function
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat(locale === 'fa' ? 'fa-IR' : 'en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-    }).format(price);
-  };
+  // Get filter options with counts
+  const allCategories = await prisma.category.findMany({
+    where: { isActive: true },
+    select: {
+      id: true,
+      nameEn: true,
+      nameFa: true,
+      slug: true,
+      _count: {
+        select: {
+          products: {
+            where: { isActive: true, status: 'PUBLISHED' },
+          },
+        },
+      },
+    },
+  });
 
-  // Get translation for filter bar
-  const filterBarTranslations = {
-    allCategories: t('allCategories'),
-    searchPlaceholder: t('searchPlaceholder'),
+  const allConcerns = await prisma.concern.findMany({
+    where: { isActive: true },
+    select: {
+      id: true,
+      nameEn: true,
+      nameFa: true,
+      slug: true,
+      _count: {
+        select: {
+          products: {
+            where: { product: { isActive: true, status: 'PUBLISHED' } },
+          },
+        },
+      },
+    },
+  });
+
+  const allSkinTypes = await prisma.skinType.findMany({
+    where: { isActive: true },
+    select: {
+      id: true,
+      nameEn: true,
+      nameFa: true,
+      slug: true,
+    },
+  });
+
+  // Get unique brands from products
+const allBrands = await prisma.product.findMany({
+  where: { isActive: true, status: 'PUBLISHED' },
+  select: { brand: true },
+  distinct: ['brand'],
+});
+
+// Also get count for each brand
+const brandCounts = await prisma.product.groupBy({
+  by: ['brand'],
+  where: { isActive: true, status: 'PUBLISHED' },
+  _count: {
+    brand: true,
+  },
+});
+
+// Format brands for filters
+type BrandWithCount = {
+  brand: string | null;
+};
+
+type BrandCount = {
+  brand: string | null;
+  _count: {
+    brand: number;
   };
+};
+
+const formattedBrands = allBrands
+  .filter((b: BrandWithCount) => b.brand)
+  .map((b: BrandWithCount) => {
+    const count = brandCounts.find((bc: BrandCount) => bc.brand === b.brand)?._count.brand || 0;
+    return {
+      id: b.brand!,
+      label: b.brand!,
+      count: count,
+    };
+  });
+
+  // Format filters for UI
+  type CategoryFilter = {
+  id: string;
+  nameEn: string;
+  nameFa: string;
+  slug: string;
+  _count: { products: number };
+};
+
+type ConcernFilter = {
+  id: string;
+  nameEn: string;
+  nameFa: string;
+  slug: string;
+  _count: { products: number };
+};
+
+type SkinTypeFilter = {
+  id: string;
+  nameEn: string;
+  nameFa: string;
+  slug: string;
+};
+
+const filters = {
+  categories: allCategories.map((c: CategoryFilter) => ({
+    id: c.slug,
+    label: isPersian ? c.nameFa : c.nameEn,
+    count: c._count.products,
+  })),
+  concerns: allConcerns.map((c: ConcernFilter) => ({
+    id: c.slug,
+    label: isPersian ? c.nameFa : c.nameEn,
+    count: c._count.products,
+  })),
+  skinTypes: allSkinTypes.map((s: SkinTypeFilter) => ({
+    id: s.slug,
+    label: isPersian ? s.nameFa : s.nameEn,
+    count: 0,
+  })),
+  brands: formattedBrands,
+  priceRange: { min: 0, max: 10000 },
+};
+
+  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
+
+  // Get categories for FilterBar
+  const categoriesForFilterBar = await prisma.category.findMany({
+    where: { isActive: true },
+    orderBy: { order: 'asc' },
+    select: {
+      id: true,
+      slug: true,
+      nameEn: true,
+      nameFa: true,
+    },
+  });
 
   return (
-    <main className="min-h-screen bg-brand-background py-12">
-      <div className="container-custom">
-        {/* Page Header */}
-        <div className="mb-8 text-center">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <Sparkles className="w-5 h-5 text-brand-primary" />
-            <span className="text-sm font-medium text-brand-primary bg-brand-pale-rose px-3 py-1 rounded-full">
-              {locale === 'fa' ? '✨ محصولات ما' : '✨ Our Products'}
-            </span>
-          </div>
-          <h1 className="text-3xl md:text-4xl font-bold text-brand-text mb-2">
-            {t('title')}
-          </h1>
-          <p className="text-brand-text-secondary max-w-2xl mx-auto">
-            {t('subtitle')}
-          </p>
-        </div>
-
-        {/* Filter Bar */}
-        <FilterBar
-          categories={categories}
-          currentCategory={search?.category || ''}
-          currentSearch={search?.search || ''}
-          locale={locale}
-          t={filterBarTranslations}
-        />
-
-        {/* Product Grid */}
-        {products.length === 0 ? (
-          <div className="text-center py-16 bg-white rounded-xl shadow-soft border border-brand-secondary/20">
-            <div className="text-5xl mb-4">🛍️</div>
-            <p className="text-brand-text-secondary text-lg">{t('noProducts')}</p>
-            <Link
-              href={`/${locale}/shop`}
-              className="inline-block mt-4 text-brand-primary hover:underline"
-            >
-              {locale === 'fa' ? 'مشاهده همه محصولات' : 'View all products'}
-            </Link>
-          </div>
-        ) : (
-          <>
-            {/* Product Count */}
-            <div className="flex items-center justify-between mb-6">
-              <p className="text-sm text-brand-text-secondary">
-                {locale === 'fa'
-                  ? `${products.length} محصول یافت شد`
-                  : `${products.length} products found`}
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {products.map((product) => {
-                const lowestPrice = Math.min(...product.variants.map((v) => v.price));
-                const hasMultipleVariants = product.variants.length > 1;
-
-                return (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    locale={locale}
-                    formattedLowestPrice={formatPrice(lowestPrice)}
-                    hasMultipleVariants={hasMultipleVariants}
-                  />
-                );
-              })}
-            </div>
-          </>
-        )}
-      </div>
-    </main>
+    <ShopClient
+      initialProducts={products}
+      totalCount={totalCount}
+      filters={filters}
+      locale={locale}
+      currentPage={page}
+      totalPages={totalPages}
+      categories={categoriesForFilterBar}
+    />
   );
 }

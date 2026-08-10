@@ -3,8 +3,9 @@
 'use client';
 
 import { useState } from 'react';
+import { Star, User, Image as ImageIcon, X } from 'lucide-react';
 import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import toast from 'react-hot-toast';
 
 interface Review {
   id: string;
@@ -12,248 +13,373 @@ interface Review {
   title: string | null;
   commentEn: string | null;
   commentFa: string | null;
-  isVerifiedPurchase: boolean;
-  isApproved: boolean;
+  images: string[];
   createdAt: Date;
   user: {
+    id: string;
     name: string | null;
+    image: string | null;
   };
+  isVerifiedPurchase: boolean;
 }
 
 interface ProductReviewsProps {
-  reviews: Review[];
   productId: string;
-  productSlug: string;
+  reviews: Review[];
+  averageRating: number;
   locale: string;
-  userHasPurchased: boolean;
-  t: {
-    reviews: string;
-    noReviews: string;
-    writeReview: string;
-    rating: string;
-    title: string;
-    comment: string;
-    submit: string;
-    cancel: string;
-    verifiedPurchase: string;
-    pendingApproval: string;
-    averageRating: string;
-    outOf: string;
-  };
 }
 
 export default function ProductReviews({
-  reviews,
   productId,
-  productSlug,
+  reviews,
+  averageRating,
   locale,
-  userHasPurchased,
-  t,
 }: ProductReviewsProps) {
+  const isPersian = locale === 'fa';
   const { data: session } = useSession();
-  const router = useRouter();
-  const [showForm, setShowForm] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [showWriteReview, setShowWriteReview] = useState(false);
+  const [rating, setRating] = useState(0);
+  const [hoverRating, setHoverRating] = useState(0);
+  const [title, setTitle] = useState('');
+  const [comment, setComment] = useState('');
+  const [reviewImages, setReviewImages] = useState<File[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [formData, setFormData] = useState({
-    rating: 5,
-    title: '',
-    comment: '',
-  });
+  const totalReviews = reviews.length;
 
-  const approvedReviews = reviews.filter(r => r.isApproved);
-  const averageRating = approvedReviews.length > 0
-    ? approvedReviews.reduce((sum, r) => sum + r.rating, 0) / approvedReviews.length
-    : 0;
+  // Rating distribution
+  const distribution = [5, 4, 3, 2, 1].map((stars) => ({
+    stars,
+    count: reviews.filter((r) => r.rating === stars).length,
+    percentage: totalReviews > 0 ? (reviews.filter((r) => r.rating === stars).length / totalReviews) * 100 : 0,
+  }));
 
-  const formatDate = (date: Date) => {
-    return new Intl.DateTimeFormat(locale === 'fa' ? 'fa-IR' : 'en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    }).format(new Date(date));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitting(true);
-    setError(null);
-    setSuccess(null);
+    if (!session) {
+      toast.error(isPersian ? 'لطفاً وارد شوید' : 'Please login to review');
+      return;
+    }
+
+    if (rating === 0) {
+      toast.error(isPersian ? 'لطفاً امتیاز دهید' : 'Please select a rating');
+      return;
+    }
+
+    setIsSubmitting(true);
 
     try {
-      const response = await fetch('/api/reviews', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          productId,
-          rating: formData.rating,
-          title: formData.title,
-          comment: formData.comment,
-          locale,
-        }),
+      const formData = new FormData();
+      formData.append('productId', productId);
+      formData.append('rating', String(rating));
+      formData.append('title', title);
+      formData.append('comment', comment);
+      
+      reviewImages.forEach((image) => {
+        formData.append('images', image);
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to submit review');
-      }
+      const response = await fetch('/api/reviews', {
+        method: 'POST',
+        body: formData,
+      });
 
-      setSuccess('Review submitted successfully!');
-      setFormData({ rating: 5, title: '', comment: '' });
-      setShowForm(false);
-      router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      if (response.ok) {
+        toast.success(isPersian ? 'نظر شما ثبت شد' : 'Review submitted');
+        setRating(0);
+        setTitle('');
+        setComment('');
+        setReviewImages([]);
+        setShowWriteReview(false);
+        // Refresh the page to show new review
+        window.location.reload();
+      } else {
+        toast.error(isPersian ? 'خطا در ثبت نظر' : 'Failed to submit review');
+      }
+    } catch (error) {
+      toast.error(isPersian ? 'خطا در ثبت نظر' : 'Failed to submit review');
     } finally {
-      setSubmitting(false);
+      setIsSubmitting(false);
     }
   };
 
-  const renderStars = (rating: number) => {
-    return (
-      <div className="flex items-center gap-0.5">
-        {[1, 2, 3, 4, 5].map((star) => (
-          <span key={star} className={star <= rating ? 'text-yellow-400' : 'text-slate-300'}>
-            ★
-          </span>
-        ))}
-      </div>
-    );
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length + reviewImages.length > 5) {
+      toast.error(isPersian ? 'حداکثر ۵ عکس می‌توانید آپلود کنید' : 'Maximum 5 images allowed');
+      return;
+    }
+    setReviewImages([...reviewImages, ...files]);
+  };
+
+  const removeImage = (index: number) => {
+    setReviewImages(reviewImages.filter((_, i) => i !== index));
   };
 
   return (
-    <div className="mt-8">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <h2 className="text-2xl font-bold text-slate-800">{t.reviews}</h2>
-          <span className="text-sm text-slate-500">({approvedReviews.length})</span>
+    <div className="mt-12">
+      <h3 className="heading-3 text-brand-text mb-6">
+        {isPersian ? 'نظرات مشتریان' : 'Customer Reviews'}
+      </h3>
+
+      {/* Review Summary */}
+      <div className="flex flex-col md:flex-row gap-8 p-6 bg-brand-pale-rose/20 rounded-2xl mb-8">
+        {/* Average Rating */}
+        <div className="text-center md:text-left">
+          <div className="text-5xl font-bold text-brand-text">{averageRating.toFixed(1)}</div>
+          <div className="flex items-center gap-1 mt-2">
+            {[...Array(5)].map((_, i) => (
+              <Star
+                key={i}
+                className={`w-5 h-5 ${
+                  i < Math.round(averageRating)
+                    ? 'fill-current text-yellow-400'
+                    : 'text-brand-secondary/30'
+                }`}
+              />
+            ))}
+          </div>
+          <p className="text-sm text-brand-text-secondary mt-1">
+            {totalReviews} {isPersian ? 'نظر' : 'reviews'}
+          </p>
         </div>
-        {session && userHasPurchased && !showForm && (
+
+        {/* Distribution */}
+        <div className="flex-1 space-y-2">
+          {distribution.map((item) => (
+            <div key={item.stars} className="flex items-center gap-3">
+              <span className="text-sm text-brand-text-secondary w-8">{item.stars}★</span>
+              <div className="flex-1 h-2 bg-brand-pale-rose rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-brand-primary rounded-full transition-all"
+                  style={{ width: `${item.percentage}%` }}
+                />
+              </div>
+              <span className="text-sm text-brand-text-secondary w-12">
+                {item.count}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Write Review Button */}
+        <div className="flex items-center">
           <button
-            onClick={() => setShowForm(true)}
-            className="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition text-sm"
+            onClick={() => setShowWriteReview(!showWriteReview)}
+            className="btn-primary"
           >
-            {t.writeReview}
+            {isPersian ? 'ثبت نظر' : 'Write a Review'}
           </button>
-        )}
-        {!session && (
-          <button
-            onClick={() => router.push(`/${locale}/login?callbackUrl=/${locale}/product/${productSlug}`)}
-            className="px-4 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 transition text-sm"
-          >
-            Sign in to review
-          </button>
-        )}
+        </div>
       </div>
 
-      {approvedReviews.length > 0 && (
-        <div className="bg-slate-50 rounded-lg p-4 mb-6 flex items-center gap-6">
-          <div className="text-center">
-            <p className="text-4xl font-bold text-slate-800">{averageRating.toFixed(1)}</p>
-            <div>{renderStars(Math.round(averageRating))}</div>
-            <p className="text-sm text-slate-500">{t.outOf} 5</p>
-          </div>
-          <div className="flex-1">
-            <p className="text-sm text-slate-600">{approvedReviews.length} {t.reviews.toLowerCase()}</p>
-          </div>
-        </div>
-      )}
-
-      {showForm && (
-        <div className="bg-white border border-slate-200 rounded-xl p-6 mb-6">
-          <h3 className="font-semibold text-slate-800 mb-4">{t.writeReview}</h3>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg">{error}</div>}
-            {success && <div className="bg-green-50 text-green-600 text-sm p-3 rounded-lg">{success}</div>}
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">{t.rating} *</label>
-              <div className="flex gap-2">
+      {/* Write Review Form */}
+      {showWriteReview && (
+        <div className="bg-white rounded-2xl p-6 border border-brand-secondary/20 mb-8">
+          <h4 className="font-semibold text-brand-text mb-4">
+            {isPersian ? 'ثبت نظر جدید' : 'Write a Review'}
+          </h4>
+          <form onSubmit={handleSubmitReview}>
+            {/* Rating */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-brand-text mb-2">
+                {isPersian ? 'امتیاز' : 'Rating'}
+              </label>
+              <div className="flex items-center gap-1">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <button
                     key={star}
                     type="button"
-                    onClick={() => setFormData(prev => ({ ...prev, rating: star }))}
-                    className={`text-3xl transition ${star <= formData.rating ? 'text-yellow-400' : 'text-slate-300'}`}
+                    onClick={() => setRating(star)}
+                    onMouseEnter={() => setHoverRating(star)}
+                    onMouseLeave={() => setHoverRating(0)}
+                    className="focus:outline-none"
                   >
-                    ★
+                    <Star
+                      className={`w-8 h-8 transition ${
+                        star <= (hoverRating || rating)
+                          ? 'fill-current text-yellow-400'
+                          : 'text-brand-secondary/30'
+                      }`}
+                    />
                   </button>
                 ))}
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">{t.title}</label>
+            {/* Title */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-brand-text mb-2">
+                {isPersian ? 'عنوان' : 'Title'}
+              </label>
               <input
                 type="text"
-                value={formData.title}
-                onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-transparent"
-                placeholder="What's your experience?"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder={isPersian ? 'خلاصه نظر خود را بنویسید' : 'Summary of your review'}
+                className="w-full px-4 py-2 border border-brand-secondary/30 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent outline-none transition"
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">{t.comment} *</label>
+            {/* Comment */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-brand-text mb-2">
+                {isPersian ? 'نظر' : 'Comment'}
+              </label>
               <textarea
-                value={formData.comment}
-                onChange={(e) => setFormData(prev => ({ ...prev, comment: e.target.value }))}
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
                 rows={4}
-                className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-transparent"
-                placeholder="Share your detailed experience..."
-                required
+                placeholder={isPersian ? 'نظر خود را بنویسید...' : 'Write your review...'}
+                className="w-full px-4 py-2 border border-brand-secondary/30 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent outline-none transition"
               />
             </div>
 
-            <div className="flex gap-3">
+            {/* Image Upload */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-brand-text mb-2">
+                {isPersian ? 'عکس‌ها (اختیاری)' : 'Images (Optional)'}
+              </label>
+              <div className="flex items-center gap-3 flex-wrap">
+                <label className="cursor-pointer">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
+                  <div className="px-4 py-2 border-2 border-dashed border-brand-secondary/30 rounded-lg hover:border-brand-primary transition">
+                    <ImageIcon className="w-5 h-5 text-brand-text-secondary" />
+                  </div>
+                </label>
+                {reviewImages.map((file, index) => (
+                  <div key={index} className="relative w-16 h-16 rounded-lg overflow-hidden">
+                    <img
+                      src={URL.createObjectURL(file)}
+                      alt={`Review ${index}`}
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(index)}
+                      className="absolute top-0 right-0 p-0.5 bg-red-500 text-white rounded-full hover:bg-red-600"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-brand-text-secondary mt-1">
+                {isPersian ? 'حداکثر ۵ عکس' : 'Maximum 5 images'}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
               <button
                 type="submit"
-                disabled={submitting}
-                className="px-6 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition disabled:opacity-50"
+                disabled={isSubmitting}
+                className="btn-primary flex items-center gap-2"
               >
-                {submitting ? 'Submitting...' : t.submit}
+                {isSubmitting ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    {isPersian ? 'در حال ثبت...' : 'Submitting...'}
+                  </>
+                ) : (
+                  isPersian ? 'ثبت نظر' : 'Submit Review'
+                )}
               </button>
               <button
                 type="button"
-                onClick={() => setShowForm(false)}
-                className="px-6 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 transition"
+                onClick={() => setShowWriteReview(false)}
+                className="px-4 py-2 text-brand-text-secondary hover:text-brand-primary transition"
               >
-                {t.cancel}
+                {isPersian ? 'انصراف' : 'Cancel'}
               </button>
             </div>
           </form>
         </div>
       )}
 
-      {approvedReviews.length === 0 && !showForm ? (
-        <p className="text-slate-500 text-center py-8">{t.noReviews}</p>
-      ) : (
-        <div className="space-y-4">
-          {approvedReviews.map((review) => (
-            <div key={review.id} className="border-b border-slate-100 pb-4 last:border-b-0">
-              <div className="flex items-center justify-between">
+      {/* Reviews List */}
+      <div className="space-y-6">
+        {reviews.map((review) => {
+          const comment = isPersian ? review.commentFa || review.commentEn : review.commentEn || review.commentFa;
+          const reviewTitle = review.title || (isPersian ? 'نظر' : 'Review');
+
+          return (
+            <div key={review.id} className="p-6 bg-white rounded-xl border border-brand-secondary/10">
+              <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-slate-200 rounded-full flex items-center justify-center text-slate-600 text-sm font-medium">
-                    {review.user.name ? review.user.name.charAt(0).toUpperCase() : '?'}
-                  </div>
-                  <span className="font-medium text-slate-800">{review.user.name || 'Anonymous'}</span>
-                  {review.isVerifiedPurchase && (
-                    <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">
-                      ✅ {t.verifiedPurchase}
-                    </span>
+                  {review.user.image ? (
+                    <img
+                      src={review.user.image}
+                      alt={review.user.name || 'User'}
+                      className="w-10 h-10 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-brand-pale-rose flex items-center justify-center">
+                      <User className="w-5 h-5 text-brand-text-secondary" />
+                    </div>
                   )}
+                  <div>
+                    <p className="font-medium text-brand-text">
+                      {review.user.name || (isPersian ? 'کاربر' : 'User')}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-0.5">
+                        {[...Array(5)].map((_, i) => (
+                          <Star
+                            key={i}
+                            className={`w-3 h-3 ${
+                              i < review.rating
+                                ? 'fill-current text-yellow-400'
+                                : 'text-brand-secondary/30'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <span className="text-xs text-brand-text-secondary">
+                        {new Date(review.createdAt).toLocaleDateString(isPersian ? 'fa-IR' : 'en-US')}
+                      </span>
+                      {review.isVerifiedPurchase && (
+                        <span className="text-xs text-success bg-success-light px-2 py-0.5 rounded-full">
+                          {isPersian ? 'خرید تأیید شده' : 'Verified Purchase'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <span className="text-sm text-slate-400">{formatDate(review.createdAt)}</span>
               </div>
-              <div className="mt-1">{renderStars(review.rating)}</div>
-              {review.title && <p className="font-medium text-slate-800 mt-1">{review.title}</p>}
-              <p className="text-slate-600 text-sm mt-1">
-                {locale === 'fa' && review.commentFa ? review.commentFa : review.commentEn}
-              </p>
+
+              <h4 className="font-semibold text-brand-text mt-3">{reviewTitle}</h4>
+              <p className="text-brand-text-secondary mt-2">{comment}</p>
+
+              {review.images && review.images.length > 0 && (
+                <div className="flex gap-2 mt-3 flex-wrap">
+                  {review.images.map((image, index) => (
+                    <div key={index} className="w-16 h-16 rounded-lg overflow-hidden">
+                      <img
+                        src={image}
+                        alt={`Review ${index}`}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          ))}
+          );
+        })}
+      </div>
+
+      {totalReviews === 0 && (
+        <div className="text-center py-8">
+          <p className="text-brand-text-secondary">
+            {isPersian ? 'هنوز نظری ثبت نشده است' : 'No reviews yet'}
+          </p>
         </div>
       )}
     </div>

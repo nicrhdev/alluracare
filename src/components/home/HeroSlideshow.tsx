@@ -2,10 +2,9 @@
 
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
-import { ArrowRight, ChevronLeft, ChevronRight, Star } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface HeroSlide {
   id: string;
@@ -29,285 +28,262 @@ interface HeroSlideshowProps {
 
 export default function HeroSlideshow({ slides, locale }: HeroSlideshowProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isAutoPlaying, setIsAutoPlaying] = useState(true);
-  const [imageError, setImageError] = useState<Record<string, boolean>>({});
+  const [isAnimating, setIsAnimating] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
-  const [isTransitioning, setIsTransitioning] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const progressRef = useRef<NodeJS.Timeout | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
   const isPersian = locale === 'fa';
+  const containerRef = useRef<HTMLDivElement>(null);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const activeSlides = slides.filter((slide) => slide.isActive);
-  const slideCount = activeSlides.length;
+  const activeSlides = slides.filter(s => s.isActive);
 
-  // Reset progress when slide changes
+  // Auto-play slides
   useEffect(() => {
-    setProgress(0);
-  }, [currentIndex]);
+    if (activeSlides.length <= 1) return;
 
-  // Auto-play with progress
-  useEffect(() => {
-    // Clear any existing intervals
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-    if (progressRef.current) {
-      clearInterval(progressRef.current);
-      progressRef.current = null;
-    }
-
-    // Only start auto-play if not hovering and more than 1 slide
-    if (!isHovering && slideCount > 1 && isAutoPlaying) {
-      const intervalDuration = 4000;
-      const progressStep = 100 / (intervalDuration / 50);
-
-      // Progress update
-      progressRef.current = setInterval(() => {
-        setProgress((prev) => {
-          if (prev >= 100) {
-            return 100;
-          }
-          return Math.min(prev + progressStep, 100);
-        });
-      }, 50);
-
-      // Slide change
-      intervalRef.current = setInterval(() => {
-        if (progress >= 100) {
+    const startTimer = () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      
+      timerRef.current = setInterval(() => {
+        if (!isHovering && !isAnimating) {
           goToNext();
         }
-      }, 100);
-    }
+      }, 5000);
+    };
+
+    startTimer();
 
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-      if (progressRef.current) {
-        clearInterval(progressRef.current);
-        progressRef.current = null;
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
       }
     };
-  }, [isHovering, slideCount, isAutoPlaying, progress]);
-
-  // Keyboard navigation
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft') {
-        goToPrevious();
-      } else if (e.key === 'ArrowRight') {
-        goToNext();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
-
-  // Touch swipe support
-  const [touchStart, setTouchStart] = useState<number | null>(null);
-  const [touchEnd, setTouchEnd] = useState<number | null>(null);
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    setTouchStart(e.targetTouches[0].clientX);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    setTouchEnd(e.targetTouches[0].clientX);
-  };
-
-  const handleTouchEnd = () => {
-    if (!touchStart || !touchEnd) return;
-    const distance = touchStart - touchEnd;
-    const isLeftSwipe = distance > 50;
-    const isRightSwipe = distance < -50;
-    if (isLeftSwipe) {
-      goToNext();
-    } else if (isRightSwipe) {
-      goToPrevious();
-    }
-    setTouchStart(null);
-    setTouchEnd(null);
-  };
-
-  const goToSlide = (index: number) => {
-    if (isTransitioning || index === currentIndex) return;
-    setIsTransitioning(true);
-    setCurrentIndex(index);
-    setIsAutoPlaying(false);
-    setTimeout(() => {
-      setIsTransitioning(false);
-      setIsAutoPlaying(true);
-    }, 600);
-  };
+  }, [activeSlides.length, isHovering, isAnimating]);
 
   const goToPrevious = () => {
-    if (isTransitioning) return;
-    goToSlide((currentIndex - 1 + slideCount) % slideCount);
+    if (isAnimating) return;
+    setIsAnimating(true);
+    setCurrentIndex((prev) =>
+      prev === 0 ? activeSlides.length - 1 : prev - 1
+    );
+    setTimeout(() => setIsAnimating(false), 600);
   };
 
   const goToNext = () => {
-    if (isTransitioning) return;
-    goToSlide((currentIndex + 1) % slideCount);
+    if (isAnimating) return;
+    setIsAnimating(true);
+    setCurrentIndex((prev) =>
+      prev === activeSlides.length - 1 ? 0 : prev + 1
+    );
+    setTimeout(() => setIsAnimating(false), 600);
   };
 
-  const handleImageError = (id: string) => {
-    setImageError((prev) => ({ ...prev, [id]: true }));
+  const goToSlide = (index: number) => {
+    if (isAnimating || index === currentIndex) return;
+    setIsAnimating(true);
+    setCurrentIndex(index);
+    setTimeout(() => setIsAnimating(false), 600);
   };
 
   const handleMouseEnter = () => {
     setIsHovering(true);
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
   };
 
   const handleMouseLeave = () => {
     setIsHovering(false);
+    // Restart timer after leaving
+    if (activeSlides.length > 1) {
+      timerRef.current = setInterval(() => {
+        if (!isAnimating) {
+          goToNext();
+        }
+      }, 5000);
+    }
   };
 
-  if (slideCount === 0) {
+  if (activeSlides.length === 0) {
     return (
-      <section className="relative bg-gradient-hero py-20 md:py-28 overflow-hidden">
-        <div className="container-custom text-center">
-          <div className="text-6xl mb-4">🧴</div>
-          <p className="text-brand-text-secondary">
-            {isPersian ? 'هیچ اسلایدی برای نمایش وجود ندارد' : 'No slides to display'}
+      <div className="relative h-[60vh] min-h-[400px] bg-gradient-hero flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-brand-primary mb-4 animate-fade-up">
+            {isPersian ? 'به آلوراکـر خوش آمدید' : 'Welcome to AlluraCare'}
+          </h1>
+          <p className="text-lg md:text-xl text-brand-text-secondary animate-fade-up" style={{ animationDelay: '0.2s' }}>
+            {isPersian ? 'محصولات مراقبت از پوست با کیفیت بالا' : 'Premium skincare products'}
           </p>
         </div>
-      </section>
+      </div>
     );
   }
 
-  const currentSlide = activeSlides[currentIndex];
-  const hasImageError = imageError[currentSlide.id];
-  const title = isPersian ? currentSlide.titleFa : currentSlide.titleEn;
-  const subtitle = isPersian ? currentSlide.subtitleFa : currentSlide.subtitleEn;
-  const ctaText = isPersian ? currentSlide.ctaTextFa : currentSlide.ctaTextEn;
-  const ctaLink = currentSlide.ctaLink || '/shop';
+  const slide = activeSlides[currentIndex];
 
   return (
-    <section
-      className="relative bg-gradient-hero overflow-hidden"
+    <div 
+      ref={containerRef}
+      className="relative h-[60vh] min-h-[400px] md:h-[70vh] lg:h-[80vh] overflow-hidden bg-brand-pale-rose"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-      ref={containerRef}
     >
-      <div className="container-custom relative z-10 py-12 md:py-20">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
-          {/* Left - Text Content */}
-          <div className={`order-2 lg:order-1 transition-opacity duration-500 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
-            {/* Slide indicator - Dots with progress */}
-            <div className="flex items-center gap-2 mb-4">
-              {activeSlides.map((_, index) => (
-                <button
-                  key={index}
-                  onClick={() => goToSlide(index)}
-                  className={`relative h-2 rounded-full transition-all duration-500 ${
-                    index === currentIndex ? 'w-12 bg-brand-primary' : 'w-2 bg-brand-secondary/50 hover:bg-brand-secondary'
-                  }`}
-                  aria-label={`Go to slide ${index + 1}`}
-                >
-                  {index === currentIndex && (
-                    <div
-                      className="absolute inset-0 bg-brand-primary/30 rounded-full"
-                      style={{ width: `${progress}%` }}
-                    />
-                  )}
-                </button>
-              ))}
-            </div>
+      {/* Slide Background */}
+      <div className="absolute inset-0">
+        {slide.image && (
+          <img
+            src={slide.image}
+            alt={isPersian ? slide.titleFa || '' : slide.titleEn || ''}
+            className="w-full h-full object-cover transition-transform duration-10000"
+            style={{
+              transform: isHovering ? 'scale(1.05)' : 'scale(1)',
+              transition: 'transform 8s ease-out',
+            }}
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = '/images/hero-placeholder.jpg';
+            }}
+          />
+        )}
+        {/* Darker Gradient Overlay for better text readability */}
+        <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/25 to-black/30" />
+        
+        {/* Decorative floating elements */}
+        <div className="absolute top-20 right-20 w-32 h-32 rounded-full bg-white/5 blur-3xl animate-float" />
+        <div className="absolute bottom-20 left-20 w-40 h-40 rounded-full bg-white/5 blur-3xl animate-float" style={{ animationDelay: '2s' }} />
+      </div>
 
-            <h1 className="heading-display text-brand-text mb-3 leading-tight">
-              {title || (isPersian ? 'درخشش از اینجا شروع می‌شود' : 'Radiance Starts Here')}
-            </h1>
-
-            <p className="body-large max-w-lg mb-6">
-              {subtitle ||
-                (isPersian
-                  ? 'مجموعه‌ای از بهترین محصولات مراقبت از پوست با کیفیت بالا'
-                  : 'A curated collection of high-quality skincare products')}
-            </p>
-
-            <div className="flex flex-col sm:flex-row items-center gap-3">
-              <Link href={ctaLink} className="btn-primary group">
-                {ctaText || (isPersian ? 'خرید کنید' : 'Shop Now')}
-                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-              </Link>
-              <Link href={`/${locale}/about`} className="btn-secondary">
-                {isPersian ? 'درباره ما' : 'Learn More'}
-              </Link>
-            </div>
-
-            <div className="flex items-center gap-6 mt-6">
-              <div className="flex items-center gap-1">
-                {[...Array(5)].map((_, i) => (
-                  <Star key={i} className="w-4 h-4 fill-current text-yellow-400" />
-                ))}
-                <span className="text-sm text-brand-text-secondary ml-2">(1.2k)</span>
-              </div>
-              <span className="text-sm text-brand-text-secondary">
-                {isPersian ? 'محصولات با کیفیت بالا' : 'High-quality products'}
-              </span>
-            </div>
-          </div>
-
-          {/* Right - Hero Image */}
-          <div className="relative order-1 lg:order-2">
-            <div className={`relative rounded-2xl overflow-hidden shadow-hover aspect-square bg-gradient-to-br from-brand-pale-rose to-brand-light transition-opacity duration-500 ${isTransitioning ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
-              {hasImageError || !currentSlide.image ? (
-                <div className="w-full h-full flex flex-col items-center justify-center p-8 text-center">
-                  <div className="text-6xl mb-4">🧴</div>
-                  <p className="text-brand-text-secondary text-sm">
-                    {isPersian ? 'تصویر محصول' : 'Product Image'}
-                  </p>
-                  <p className="text-xs text-brand-text-secondary/60 mt-1">
-                    {isPersian ? 'برای دیدن تصویر، آن را در بخش مدیریت آپلود کنید' : 'Upload an image in the admin panel'}
-                  </p>
-                </div>
-              ) : (
-                <img
-                  src={currentSlide.image}
-                  alt={title || (isPersian ? 'اسلاید قهرمان' : 'Hero slide')}
-                  className="w-full h-full object-cover transition-transform duration-700 hover:scale-105"
-                  onError={() => handleImageError(currentSlide.id)}
-                />
-              )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent pointer-events-none"></div>
-            </div>
-
-            {/* Navigation Arrows */}
-            {slideCount > 1 && (
-              <>
-                <button
-                  onClick={goToPrevious}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 p-2 bg-white/90 hover:bg-white rounded-full shadow-soft transition-all duration-300 hover:scale-110 hover:shadow-medium"
-                  aria-label="Previous slide"
-                >
-                  <ChevronLeft className="w-5 h-5 text-brand-text" />
-                </button>
-                <button
-                  onClick={goToNext}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-white/90 hover:bg-white rounded-full shadow-soft transition-all duration-300 hover:scale-110 hover:shadow-medium"
-                  aria-label="Next slide"
-                >
-                  <ChevronRight className="w-5 h-5 text-brand-text" />
-                </button>
-              </>
+      {/* Content - Centered with animations */}
+      <div className="relative h-full flex items-center justify-center">
+        <div className="container-custom text-center">
+          <div className="max-w-3xl mx-auto">
+            {/* Title with animation */}
+            {slide.titleEn && (
+              <h1
+                className={`text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4 drop-shadow-lg ${
+                  isPersian ? 'font-persian' : ''
+                }`}
+                style={{
+                  animation: `fadeUp 0.8s ease-out forwards`,
+                  animationDelay: '0.1s',
+                  opacity: 0,
+                }}
+              >
+                {isPersian ? slide.titleFa : slide.titleEn}
+              </h1>
             )}
-
-            {/* Slide Counter */}
-            {slideCount > 1 && (
-              <div className="absolute bottom-4 right-4 bg-black/40 backdrop-blur-sm px-3 py-1 rounded-full text-xs text-white/90">
-                {currentIndex + 1} / {slideCount}
-              </div>
+            
+            {/* Subtitle with animation */}
+            {slide.subtitleEn && (
+              <p
+                className={`text-lg sm:text-xl md:text-2xl text-white/95 mb-8 drop-shadow ${
+                  isPersian ? 'font-persian' : ''
+                }`}
+                style={{
+                  animation: `fadeUp 0.8s ease-out forwards`,
+                  animationDelay: '0.3s',
+                  opacity: 0,
+                }}
+              >
+                {isPersian ? slide.subtitleFa : slide.subtitleEn}
+              </p>
+            )}
+            
+            {/* CTA Button with animation */}
+            {slide.ctaLink && slide.ctaTextEn && (
+              <Link
+                href={slide.ctaLink}
+                className="btn-primary inline-flex items-center gap-2 text-base md:text-lg px-6 md:px-8 py-3 md:py-4 shadow-lg hover:scale-105 transition-transform duration-300"
+                style={{
+                  animation: `fadeUp 0.8s ease-out forwards`,
+                  animationDelay: '0.5s',
+                  opacity: 0,
+                }}
+              >
+                {isPersian ? slide.ctaTextFa : slide.ctaTextEn}
+                <ChevronRight className="w-4 h-4 md:w-5 md:h-5 transition-transform duration-300 group-hover:translate-x-1" />
+              </Link>
             )}
           </div>
         </div>
       </div>
-    </section>
+
+      {/* Navigation Arrows - Always visible with better styling */}
+      {activeSlides.length > 1 && (
+        <>
+          <button
+            onClick={goToPrevious}
+            className="absolute left-4 top-1/2 -translate-y-1/2 z-20 p-3 bg-white/20 backdrop-blur-sm hover:bg-white/40 rounded-full text-white transition-all duration-300 hover:scale-110 hover:shadow-lg"
+            aria-label="Previous slide"
+          >
+            <ChevronLeft className="w-6 h-6 md:w-8 md:h-8" />
+          </button>
+          <button
+            onClick={goToNext}
+            className="absolute right-4 top-1/2 -translate-y-1/2 z-20 p-3 bg-white/20 backdrop-blur-sm hover:bg-white/40 rounded-full text-white transition-all duration-300 hover:scale-110 hover:shadow-lg"
+            aria-label="Next slide"
+          >
+            <ChevronRight className="w-6 h-6 md:w-8 md:h-8" />
+          </button>
+        </>
+      )}
+
+      {/* Dots with hover pause indicator */}
+      {activeSlides.length > 1 && (
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-20">
+          {activeSlides.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => goToSlide(index)}
+              className={`transition-all duration-300 rounded-full ${
+                index === currentIndex
+                  ? 'w-10 h-2.5 bg-white shadow-lg'
+                  : 'w-2.5 h-2.5 bg-white/50 hover:bg-white/80'
+              }`}
+              aria-label={`Go to slide ${index + 1}`}
+            />
+          ))}
+          {/* Pause indicator dot */}
+          {isHovering && (
+            <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-xs text-white/60">
+              ⏸ Paused
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Slide counter */}
+      {activeSlides.length > 1 && (
+        <div className="absolute bottom-6 right-6 text-xs text-white/40 bg-black/20 backdrop-blur-sm px-3 py-1 rounded-full z-20">
+          {currentIndex + 1} / {activeSlides.length}
+        </div>
+      )}
+
+      {/* Keyframe animations */}
+      <style>{`
+        @keyframes fadeUp {
+          from {
+            opacity: 0;
+            transform: translateY(30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        @keyframes float {
+          0%, 100% { transform: translateY(0) scale(1); }
+          50% { transform: translateY(-20px) scale(1.05); }
+        }
+        
+        .animate-float {
+          animation: float 6s ease-in-out infinite;
+        }
+      `}</style>
+    </div>
   );
 }
