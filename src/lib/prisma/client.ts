@@ -1,27 +1,31 @@
 // src/lib/prisma/client.ts
 
-import { PrismaClient } from '@prisma/client';
+// ✅ Simple import for Prisma 7
+import { PrismaClient } from '@prisma/client/edge';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 
-// Create a connection pool
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined;
+};
+
+// Create database connection pool
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
-// Create the Prisma adapter
+// Create Prisma adapter
 const adapter = new PrismaPg(pool);
 
-// Create a singleton instance with the adapter
-const globalForPrisma = global as unknown as {
-  prisma: PrismaClient | undefined;
-};
-
+// Create Prisma Client instance
 export const prisma =
-  globalForPrisma.prisma ?? new PrismaClient({
+  globalForPrisma.prisma ??
+  new PrismaClient({
     adapter,
+    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
   });
 
+// In development, save to global to prevent multiple connections
 if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = prisma;
 }
