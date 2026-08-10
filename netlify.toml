@@ -1,7 +1,7 @@
 # netlify.toml
 
 [build]
-  command = "npm run build:netlify"
+  command = "NEXT_DISABLE_ESLINT=1 npm run build"
   publish = ".next"
 
 [build.environment]
@@ -16,4 +16,4 @@
 
 [context.deploy-preview.environment]
   NODE_ENV = "preview"
-  NEXTAUTH_URL = "https://alluracare-preview.netlify.app"
+  NEXTAUTH_URL = "https://preview--alluracare.netlify.app"

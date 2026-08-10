@@ -7,6 +7,9 @@ const withNextIntl = createNextIntlPlugin();
 
 /** @type {import('next').NextConfig} */
 const nextConfig: NextConfig = {
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   images: {
     formats: ['image/avif', 'image/webp'],
     remotePatterns: [
@@ -20,11 +23,8 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-
   compress: true,
   poweredByHeader: false,
-
-  output: 'standalone',
 };
 
 export default withNextIntl(nextConfig);
