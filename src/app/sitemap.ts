@@ -1,24 +1,12 @@
 // src/app/sitemap.ts
 
 import { MetadataRoute } from 'next';
-import { prisma } from '@/lib/prisma/client';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = 'https://alluracare.com';
+  const baseUrl = process.env.NEXTAUTH_URL || 'https://alluracare.vercel.app';
 
-  // Get all products for sitemap
-  const products = await prisma.product.findMany({
-    where: { isActive: true, status: 'PUBLISHED' },
-    select: { slug: true, updatedAt: true },
-  });
-
-  // Get all categories
-  const categories = await prisma.category.findMany({
-    where: { isActive: true },
-    select: { slug: true, updatedAt: true },
-  });
-
-  // Static pages with Persian priority (fa first, then en)
+  // ✅ Don't query database during build
+  // Return only static pages
   const staticPages = [
     { path: '', priority: 1.0, changefreq: 'daily' },
     { path: '/shop', priority: 0.9, changefreq: 'daily' },
@@ -32,57 +20,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   const routes: MetadataRoute.Sitemap = [];
+  const locales = ['en', 'fa'];
 
-  // Add Persian pages FIRST (higher priority)
-  const locales = ['fa', 'en'];
-  for (const page of staticPages) {
-    // Persian first - higher priority
-    routes.push({
-      url: `${baseUrl}/fa${page.path}`,
-      lastModified: new Date(),
-      changeFrequency: page.changefreq as any,
-      priority: page.priority + 0.1, // Persian pages get +0.1 priority
-    });
-
-    // English pages - standard priority
-    routes.push({
-      url: `${baseUrl}/en${page.path}`,
-      lastModified: new Date(),
-      changeFrequency: page.changefreq as any,
-      priority: page.priority,
-    });
-  }
-
-  // Add product pages - Persian first
-  for (const product of products) {
-    routes.push({
-      url: `${baseUrl}/fa/product/${product.slug}`,
-      lastModified: product.updatedAt,
-      changeFrequency: 'weekly',
-      priority: 0.9,
-    });
-    routes.push({
-      url: `${baseUrl}/en/product/${product.slug}`,
-      lastModified: product.updatedAt,
-      changeFrequency: 'weekly',
-      priority: 0.8,
-    });
-  }
-
-  // Add category pages - Persian first
-  for (const category of categories) {
-    routes.push({
-      url: `${baseUrl}/fa/shop?category=${category.slug}`,
-      lastModified: category.updatedAt,
-      changeFrequency: 'weekly',
-      priority: 0.8,
-    });
-    routes.push({
-      url: `${baseUrl}/en/shop?category=${category.slug}`,
-      lastModified: category.updatedAt,
-      changeFrequency: 'weekly',
-      priority: 0.7,
-    });
+  for (const locale of locales) {
+    for (const page of staticPages) {
+      routes.push({
+        url: `${baseUrl}/${locale}${page.path}`,
+        lastModified: new Date(),
+        changeFrequency: page.changefreq as any,
+        priority: page.priority,
+      });
+    }
   }
 
   return routes;
