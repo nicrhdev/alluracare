@@ -1,5 +1,6 @@
 // src/app/[locale]/layout.tsx
 
+import React from 'react';
 import type { Metadata } from 'next';
 import { Inter, Playfair_Display } from 'next/font/google';
 import { NextIntlClientProvider } from 'next-intl';
@@ -11,7 +12,9 @@ import Footer from '@/components/common/Footer';
 import AnnouncementBar from '@/components/common/AnnouncementBar';
 import PageTransition from '@/components/providers/PageTransition';
 import AIAssistant from '@/components/common/AIAssistant';
+import ErrorBoundary from '@/components/common/ErrorBoundary';
 import '../globals.css';
+  
 
 const inter = Inter({
   subsets: ['latin'],

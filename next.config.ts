@@ -7,9 +7,15 @@ const withNextIntl = createNextIntlPlugin();
 
 /** @type {import('next').NextConfig} */
 const nextConfig: NextConfig = {
+  // ✅ Show detailed errors in production (temporarily)
+  productionBrowserSourceMaps: true,
+
+  // ✅ Skip TypeScript errors during build
   typescript: {
     ignoreBuildErrors: true,
   },
+
+  // ✅ Remove eslint from config (it goes in package.json, not here)
 
   images: {
     formats: ['image/avif', 'image/webp'],
